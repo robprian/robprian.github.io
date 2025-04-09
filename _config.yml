@@ -1,0 +1,24 @@
+title: Robby Aprianto
+email: robprian@gmail.com
+description: >-
+  System Engineer | Linux & Infra Enthusiast — My personal blog & professional profile.
+baseurl: ""
+url: "https://robprian.github.io"
+
+theme: minima
+plugins:
+  - jekyll-feed
+
+# SEO metadata
+author: Robby Aprianto
+keywords: "System Engineer, Linux, Infrastructure, Blog, DevOps"
+
+# Google Analytics
+google_analytics: UA-XXXXXXXXX-X
+
+minima:
+  skin: auto
+  social_links:
+    - { platform: linkedin, user_url: "https://linkedin.com/in/robbyaprianto" }
+    - { platform: twitter, user_url: "https://x.com/robbyyapr" }
+    - { platform: instagram, user_url: "https://instagram.com/robbyyapr" }
