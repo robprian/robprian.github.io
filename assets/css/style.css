@@ -1,0 +1,61 @@
+/* Main theme colors and fonts */
+:root {
+  --global-bg-color: #ffffff;
+  --global-code-bg-color: rgba(181, 181, 181, 0.2);
+  --global-text-color: #000000;
+  --global-text-color-light: #666666;
+  --global-theme-color: #2698BA;
+  --global-hover-color: #2698BA;
+  --global-footer-bg-color: #1C1C1D;
+  --global-footer-text-color: #e8e8e8;
+  --global-footer-link-color: #ffffff;
+  --global-icon-color: #424242;
+}
+
+body {
+  font-family: "Source Sans Pro", sans-serif;
+  padding-top: 70px;
+  color: var(--global-text-color);
+  background-color: var(--global-bg-color);
+}
+
+.navbar {
+  background-color: var(--global-footer-bg-color);
+  box-shadow: 0 0.125rem 0.25rem 0 rgba(0,0,0,0.11);
+}
+
+.navbar .navbar-nav .nav-item .nav-link {
+  color: var(--global-footer-text-color);
+}
+
+.navbar .navbar-nav .nav-item .nav-link:hover {
+  color: var(--global-hover-color);
+}
+
+.profile-image {
+  width: 100%;
+  height: auto;
+  margin-bottom: 20px;
+}
+
+.social-icons {
+  margin-top: 30px;
+}
+
+.social-icons a {
+  color: var(--global-icon-color);
+  margin: 0 10px;
+}
+
+.social-icons a:hover {
+  color: var(--global-theme-color);
+}
+
+.news-table {
+  margin-top: 30px;
+}
+
+.news-table td {
+  padding: 10px 0;
+  border-bottom: 1px solid #eee;
+}

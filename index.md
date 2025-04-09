@@ -1,25 +1,26 @@
 ---
-layout: home
-title: "Hi, I'm Robby Aprianto"
-subtitle: "System Engineer | Linux & Infrastructure Enthusiast"
+layout: about
+title: about
+permalink: /
+subtitle: System Engineer | Linux & Infrastructure Enthusiast
+
+profile:
+  align: right
+  image: prof_pic.jpg
+  image_circular: false
+  address: >
+    <p>Jakarta, Indonesia</p>
+    <p>robprian@gmail.com</p>
+
+news: true  # includes a list of news items
+selected_papers: false # includes a list of papers marked as "selected={true}"
+social: true  # includes social icons at the bottom of the page
 ---
 
-<!-- Font Awesome CDN -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+Welcome to my personal space on the internet. I'm passionate about building reliable infrastructure, automating things with Linux tools, and sharing what I learn.
 
-Welcome to my personal space on the internet. I’m passionate about building reliable infrastructure, automating things with Linux tools, and sharing what I learn.
+I specialize in Linux system administration, infrastructure automation, and DevOps practices. My work focuses on creating reliable, scalable systems that help businesses operate more efficiently.
 
-👉 Check out my latest [blog posts](./blog)!  
-📫 Contact me at: [robprian@gmail.com](mailto:robprian@gmail.com)
-
-<div class="social-icons" style="margin-top: 1em;">
-  <a href="https://linkedin.com/in/robbyaprianto" target="_blank" style="margin-right: 10px;">
-    <i class="fab fa-linkedin fa-lg"></i> LinkedIn
-  </a> •
-  <a href="https://x.com/robbyyapr" target="_blank" style="margin: 0 10px;">
-    <i class="fab fa-x-twitter fa-lg"></i> X (Twitter)
-  </a> •
-  <a href="https://instagram.com/robbyyapr" target="_blank" style="margin-left: 10px;">
-    <i class="fab fa-instagram fa-lg"></i> Instagram
-  </a>
-</div>
+## Latest News
+- **[2024]** Working on exciting infrastructure projects
+- **[2023]** Contributing to open-source Linux tools
