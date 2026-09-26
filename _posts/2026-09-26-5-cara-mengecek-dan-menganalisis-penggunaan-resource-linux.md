@@ -1,13 +1,14 @@
 ---
 layout: post
 title: "5 Cara Mengecek dan Menganalisis Penggunaan Resource Linux"
-date: 2026-09-26 13:47:36 +0000
+date: 2026-09-26 15:00:33 +0000
 description: "Panduan praktis untuk mengecek CPU, RAM, disk, process, dan resource usage pada server Linux menggunakan command-line tools."
-image: "https://docs.ghazi.biz.id/cdn/3399baebec2abb3c/stream"
+image: "https://docs.ghazi.biz.id/s/be11bb678eb0117d9577497cc297913d/stream"
 categories: []
 tags: []
 ---
 
+![5 Cara Mengecek dan Menganalisis Penggunaan Resource Linux.png](https://docs.ghazi.biz.id/cdn/3399baebec2abb3c/stream)
 # 5 Cara Mengecek dan Menganalisis Penggunaan Resource Linux
 
 Server yang lambat jarang memberikan peringatan yang jelas. Kadang website mulai terasa berat, kadang query database tiba-tiba memakan waktu dua kali lipat, dan kadang aplikasi gagal merespons sama sekali. Dalam banyak kasus, akar masalahnya adalah resource sistem yang menipis, entah itu CPU yang jenuh, RAM yang habis, disk yang penuh, atau antrian process yang menumpuk. Kemampuan membaca kondisi resource Linux melalui command line adalah keterampilan dasar yang wajib dimiliki oleh system administrator, DevOps engineer, maupun backend developer yang mengelola server sendiri.
