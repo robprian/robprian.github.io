@@ -27,13 +27,15 @@ Deno.serve(async request => {
   const slug=slugify(typeof input.slug==='string'?input.slug:title)
   const content=typeof input.content==='string'?input.content:''
   const description=typeof input.description==='string'?input.description.trim().slice(0,300):''
+  const rawCover=typeof input.coverImage==='string'?input.coverImage.trim().slice(0,500):''
+  const coverImage=/^(https?:\/\/|\/)/.test(rawCover)?rawCover:''
   if(!title||!slug||!content||content.length>200000) return response(request, {error:'Title, slug, and content are required; content limit is 200 KB'},400)
   const {data:existing}=await db.from('drafts').select('github_path,github_sha').eq('user_id',user.id).eq('slug',slug).maybeSingle()
   const now=new Date()
   const date=now.toISOString().replace('T',' ').replace(/\.\d{3}Z$/,' +0000')
   const path=existing?.github_path||`_posts/${date.slice(0,10)}-${slug}.md`
   const summary=description||content.replace(/[#*_`]/g,' ').replace(/\s+/g,' ').trim().slice(0,180)
-  const markdown=`---\nlayout: post\ntitle: ${yaml(title)}\ndate: ${date}\ndescription: ${yaml(summary)}\ncategories: []\ntags: []\n---\n\n${content}\n`
+  const markdown=`---\nlayout: post\ntitle: ${yaml(title)}\ndate: ${date}\ndescription: ${yaml(summary)}\n${coverImage?`image: ${yaml(coverImage)}\n`:''}categories: []\ntags: []\n---\n\n${content}\n`
   const draftPayload={user_id:user.id,slug,title,description:summary,content,status:'DRAFT',github_path:existing?.github_path||null,github_sha:existing?.github_sha||null,updated_at:now.toISOString()}
   const {data:draft,error:draftError}=await db.from('drafts').upsert(draftPayload,{onConflict:'user_id,slug'}).select('id').single()
   if(draftError) return response(request, {error:'Draft save failed'},500)
@@ -45,7 +47,7 @@ Deno.serve(async request => {
   const write=await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`,{method:'PUT',headers:{Authorization:`Bearer ${githubToken}`,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'},body:JSON.stringify(body)})
   if(!write.ok) return response(request, {error:write.status===409||write.status===422?'GitHub file changed concurrently. Draft retained; retry publish.':'GitHub publishing failed. Draft retained.'},write.status===409||write.status===422?409:502)
   const result=await write.json()
-  const metadata={user_id:user.id,slug,title,excerpt:summary,status:'PUBLISHED',github_path:path,github_sha:result.content?.sha||null,content,published_at:now.toISOString(),updated_at:now.toISOString()}
+  const metadata={user_id:user.id,slug,title,excerpt:summary,status:'PUBLISHED',github_path:path,github_sha:result.content?.sha||null,content,cover_image:coverImage||null,published_at:now.toISOString(),updated_at:now.toISOString()}
   const {error:metaError}=await db.from('posts_metadata').upsert(metadata,{onConflict:'slug'})
   if(metaError) return response(request, {error:'Article committed but metadata sync failed. Retry sync.'},502)
   await db.from('drafts').update({...draftPayload,status:'PUBLISHED',github_path:path,github_sha:result.content?.sha||null,published_at:now.toISOString()}).eq('id',draft.id).eq('user_id',user.id)

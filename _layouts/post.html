@@ -3,6 +3,7 @@ layout: default
 ---
 <article class="article-shell">
   <header class="article-header"><p class="eyebrow">FIELD NOTE / {{ page.date | date: "%d %b %Y" }}</p><h1>{{ page.title }}</h1>{% if page.description %}<p class="article-description">{{ page.description }}</p>{% endif %}<div class="post-meta">{% for category in page.categories %}<span>{{ category }}</span>{% endfor %}{% for tag in page.tags %}<span>#{{ tag }}</span>{% endfor %}</div></header>
+  {% if page.image %}<figure class="article-hero"><img src="{{ page.image }}" alt="{{ page.title }}"></figure>{% endif %}
   <div class="article-content">{{ content }}</div>
   <nav class="article-nav" aria-label="Article navigation">{% if page.previous.url %}<a href="{{ page.previous.url | relative_url }}">← {{ page.previous.title }}</a>{% endif %}{% if page.next.url %}<a href="{{ page.next.url | relative_url }}">{{ page.next.title }} →</a>{% endif %}</nav>
 </article>
