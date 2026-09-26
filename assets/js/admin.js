@@ -202,12 +202,35 @@ function updatePreview() {
   } catch (error) { /* preview must never break typing */ }
 }
 function insertAtCursor(textarea, text) { const start = textarea.selectionStart ?? textarea.value.length, end = textarea.selectionEnd ?? textarea.value.length; textarea.value = textarea.value.slice(0,start) + text + textarea.value.slice(end); textarea.selectionStart = textarea.selectionEnd = start + text.length; textarea.focus(); }
+async function optimizeImageForUpload(file) {
+  if (file.type === 'image/gif' || file.type === 'image/svg+xml') return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const longest = Math.max(bitmap.width, bitmap.height);
+    const scale = Math.min(1, 1600 / longest);
+    if (scale === 1 && file.size <= 800 * 1024) { bitmap.close(); return file; }
+    const width = Math.max(1, Math.round(bitmap.width * scale)), height = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width; canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    bitmap.close();
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.82));
+    if (!blob || blob.size >= file.size) return file;
+    const base = (file.name.replace(/\.[a-z0-9]+$/i, '') || 'image').slice(0, 80);
+    return new File([blob], `${base}.jpg`, { type: 'image/jpeg' });
+  } catch { return file; }
+}
 async function uploadBlogImage(file) {
   if (!file) throw new Error('Choose an image file first.');
   if (!file.type || !file.type.startsWith('image/')) throw new Error('Only image files are allowed.');
-  if (file.size > 5 * 1024 * 1024) throw new Error('Image must be 5 MB or smaller.');
+  if (file.size > 20 * 1024 * 1024) throw new Error('Image must be 5 MB or smaller.');
+  const optimized = await optimizeImageForUpload(file);
+  const payload = optimized.size <= 5 * 1024 * 1024 ? optimized : file;
+  if (payload.size > 5 * 1024 * 1024) throw new Error('Image must be 5 MB or smaller.');
   const form = new FormData();
-  form.append('file', file, file.name);
+  form.append('file', payload, payload.name);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 120000);
   let res;
