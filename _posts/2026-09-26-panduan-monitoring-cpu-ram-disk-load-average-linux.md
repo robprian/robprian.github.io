@@ -1,13 +1,15 @@
 ---
 layout: post
 title: "Panduan Monitoring CPU, RAM, Disk, dan Load Average di Linux"
-date: 2026-09-26 14:38:50 +0000
+date: 2026-09-26 14:41:30 +0000
 description: "Memahami cara membaca penggunaan CPU, RAM, disk, dan load average pada server Linux untuk membantu troubleshooting dan capacity planning."
 categories: []
 tags: []
 ---
 
 
+
+![Panduan Monitoring CPU, RAM, Disk, dan Load Average di Linux.png](https://docs.ghazi.biz.id/cdn/9da4c92a8173384f/stream)
 # Panduan Monitoring CPU, RAM, Disk, dan Load Average di Linux
 
 Monitoring server sering disederhanakan menjadi melihat satu angka persentase di dashboard. Padahal, angka tunggal seperti CPU 70 persen atau RAM 80 persen tidak banyak bercerita tanpa konteks. Apakah 70 persen itu normal pada jam sibuk atau tanda awal kejenuhan. Apakah RAM 80 persen berarti hampir habis atau justru sehat karena dimanfaatkan untuk cache. Apakah disk 90 persen masih aman untuk beberapa minggu atau harus segera ditangani hari ini juga.
