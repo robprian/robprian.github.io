@@ -52,6 +52,11 @@ The publishing backend remains server-only. The public `/admin/` shell is static
 The project API only returns public repositories. Public project titles render as links. Private repository data is never requested by the browser, so private URLs cannot become accidental public links.
 
 The existing `assets/img/logo.png` is reused. CSS applies a dark filter in light theme and leaves original white text in dark theme; source image is unchanged.
+## Admin account authorization
+
+Do not put admin passwords in Git, SQL, Jekyll, or browser code. Create or invite the user in Supabase Auth, then run `supabase/seed/admin-profile.sql` in the Supabase SQL editor. It allowlists either configured admin email without copying a password. The login password must be set through Supabase Auth only.
+
+Current observed production state: `public.admin_profiles` was missing from the Data API, so `/admin/` correctly cannot authorize a session. Deploy the migration first, then run the seed SQL and verify the row exists.
 
 ## Local site
 
