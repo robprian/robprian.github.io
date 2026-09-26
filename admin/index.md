@@ -4,20 +4,47 @@ title: Admin
 permalink: /admin/
 robots: noindex, nofollow
 ---
-<div id="admin-app" class="admin-shell"><section class="admin-login" id="login-view"><p class="eyebrow">PRIVATE CMS</p><h1>Sign in to manage field notes.</h1><p class="admin-status" id="auth-status">Checking session...</p><label for="admin-email">Admin email</label><input id="admin-email" type="email" autocomplete="email" placeholder="admin@example.com"><label for="admin-password">Password</label><input id="admin-password" type="password" autocomplete="current-password" placeholder="Your Supabase password"><div class="hero-actions"><button class="button button-primary" id="login-button" type="button">Sign in</button><button class="button button-secondary" id="oauth-button" type="button">Sign in with OAuth</button></div><p class="admin-status">Supabase Auth controls identity. Only an email listed in <code>admin_profiles</code> can enter CMS.</p></section><section id="dashboard-view" hidden><div class="admin-top"><div><p class="eyebrow">ADMIN / DASHBOARD</p><h1>Field notes</h1></div><button class="button button-secondary" id="logout-button" type="button">Log out</button></div><p class="admin-status" id="dashboard-status" aria-live="polite"></p><div class="admin-grid"><section class="admin-panel"><h2>Draft editor</h2><label for="post-title">Title</label><input id="post-title" type="text"><label for="post-slug">Slug</label><input id="post-slug" type="text"><label for="post-content">Markdown</label><textarea id="post-content" rows="16"></textarea><div class="hero-actions"><button class="button button-secondary" id="save-draft" type="button">Save draft</button><button class="button button-primary" id="publish-post" type="button">Publish</button></div></section><section class="admin-panel"><h2>Private notes</h2><label for="note-title">Title</label><input id="note-title" type="text"><label for="note-content">Note</label><textarea id="note-content" rows="10"></textarea><button class="button button-primary" id="save-note" type="button">Save note</button><div id="notes-list" class="notes-list"><p class="empty-state">Loading notes...</p></div></section></div></section></div>
-<script type="module">
-  const config = { url: '{{ site.supabase_url }}', key: '{{ site.supabase_anon_key }}' };
-  const status = document.querySelector('#auth-status'); const login = document.querySelector('#login-view'); const dashboard = document.querySelector('#dashboard-view');
-  if (!config.url || !config.key) { status.textContent = 'CMS is not configured. Add public Supabase settings before using admin.'; document.querySelector('#login-button').disabled = true; }
-  const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.45.4'); const supabase = config.url && config.key ? createClient(config.url, config.key) : null;
-  async function showSession(session) { if (!session) return; const { data } = await supabase.from('admin_profiles').select('user_id').eq('user_id', session.user.id).maybeSingle(); if (!data) { status.textContent = 'Unauthorized admin identity.'; await supabase.auth.signOut(); return; } login.hidden = true; dashboard.hidden = false; loadNotes(); }
-  if (supabase) { const { data } = await supabase.auth.getSession(); showSession(data.session); supabase.auth.onAuthStateChange((_event, session) => showSession(session)); }
-  document.querySelector('#login-button').onclick = async () => { status.textContent = 'Signing in...'; const { error } = await supabase.auth.signInWithPassword({ email: document.querySelector('#admin-email').value.trim(), password: document.querySelector('#admin-password').value }); status.textContent = error ? 'Sign-in failed. Check credentials.' : 'Signed in.'; };
-  document.querySelector('#oauth-button').onclick = async () => { status.textContent = 'Redirecting to OAuth...'; const { error } = await supabase.auth.signInWithOAuth({ provider: 'github', options: { redirectTo: `${location.origin}/admin/` } }); if (error) status.textContent = 'OAuth sign-in failed.'; };
-  document.querySelector('#logout-button').onclick = () => supabase.auth.signOut();
-  async function loadNotes() { const list = document.querySelector('#notes-list'); const { data, error } = await supabase.from('notes').select('id,title,content,updated_at').order('updated_at', { ascending: false }); if (error) { list.textContent = `Unable to load notes: ${error.message}`; return; } list.innerHTML = data.length ? data.map(note => `<article class="note-item"><strong>${escapeHtml(note.title)}</strong><p>${escapeHtml(note.content).slice(0,160)}</p></article>`).join('') : '<p class="empty-state">No private notes yet.</p>'; }
-  document.querySelector('#save-note').onclick = async () => { const user = (await supabase.auth.getUser()).data.user; const { error } = await supabase.from('notes').insert({ user_id: user.id, title: document.querySelector('#note-title').value, content: document.querySelector('#note-content').value }); document.querySelector('#dashboard-status').textContent = error ? `Save failed: ${error.message}` : 'Note saved.'; if (!error) { document.querySelector('#note-title').value = ''; document.querySelector('#note-content').value = ''; loadNotes(); } };
-  async function draftRequest(action) { const { data: { session } } = await supabase.auth.getSession(); const payload = { action, title: document.querySelector('#post-title').value, slug: document.querySelector('#post-slug').value, content: document.querySelector('#post-content').value }; const response = await fetch('{{ site.supabase_url }}/functions/v1/publish-post', { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); const result = await response.json(); document.querySelector('#dashboard-status').textContent = response.ok ? result.message : `Publish failed: ${result.error}`; }
-  document.querySelector('#save-draft').onclick = () => draftRequest('draft'); document.querySelector('#publish-post').onclick = () => draftRequest('publish'); let timer; document.querySelector('#post-content').oninput = () => { clearTimeout(timer); timer = setTimeout(() => draftRequest('draft'), 3000); };
-  function escapeHtml(value) { return value.replace(/[&<>'"]/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[character])); }
-</script>
+<div id="cms" class="cms" data-supabase-url="{{ site.supabase_url }}" data-supabase-key="{{ site.supabase_anon_key }}" aria-live="polite">
+  <section class="auth-screen" id="auth-screen" hidden>
+    <div class="auth-card">
+      <a class="cms-brand" href="{{ '/' | relative_url }}"><img src="{{ '/assets/img/logo.png' | relative_url }}" alt="Robby Aprianto"></a>
+      <span class="status-label">Private CMS</span>
+      <h1>Welcome back</h1>
+      <p>Sign in to manage your portfolio and content.</p>
+      <p class="notice" id="auth-error" role="alert" hidden></p>
+      <button class="ui-button ui-button-primary ui-button-wide" id="github-login" type="button"><span class="icon" data-icon="github"></span>Continue with GitHub</button>
+      <div class="auth-divider"><span>or continue with email</span></div>
+      <form id="password-form" class="form-stack">
+        <label for="email">Email</label><input class="ui-input" id="email" name="email" type="email" autocomplete="username" required>
+        <label for="password">Password</label><input class="ui-input" id="password" name="password" type="password" autocomplete="current-password" required>
+        <button class="ui-button ui-button-primary ui-button-wide" id="password-login" type="submit">Sign in</button>
+      </form>
+      <button class="theme-button auth-theme" id="theme-auth" type="button" aria-label="Change theme"></button>
+    </div>
+  </section>
+
+  <section class="auth-screen" id="auth-loading"><div class="loading-card"><span class="spinner" aria-hidden="true"></span><p>Checking your session</p></div></section>
+  <section class="auth-screen" id="access-denied" hidden><div class="auth-card"><span class="status-label">Access denied</span><h1>CMS access unavailable</h1><p>This account is not allowed to manage this site.</p><div class="auth-actions"><a class="ui-button ui-button-secondary" href="{{ '/' | relative_url }}">Back to website</a><button class="ui-button ui-button-primary" id="denied-signout" type="button">Sign out</button></div></div></section>
+
+  <div class="cms-shell" id="cms-shell" hidden>
+    <aside class="cms-sidebar" id="cms-sidebar" aria-label="Admin navigation">
+      <a class="cms-brand" href="{{ '/' | relative_url }}"><img src="{{ '/assets/img/logo.png' | relative_url }}" alt="Robby Aprianto"><span class="brand-caption">CONTENT STUDIO</span></a>
+      <nav class="side-nav" id="side-nav">
+        <button class="nav-item is-active" data-view="dashboard"><span data-icon="layout"></span>Dashboard</button>
+        <button class="nav-item" data-view="projects"><span data-icon="folder"></span>Projects</button>
+        <button class="nav-item" data-view="blog"><span data-icon="file"></span>Blog</button>
+        <button class="nav-item" data-view="notes"><span data-icon="lock"></span>Private notes</button>
+        <button class="nav-item" data-view="settings"><span data-icon="settings"></span>Settings</button>
+      </nav>
+      <a class="back-link" href="{{ '/' | relative_url }}"><span data-icon="external"></span>Back to website</a>
+      <div class="sidebar-account"><div class="account-avatar" id="account-avatar">RA</div><div class="account-copy"><strong id="account-name">Account</strong><span id="account-email"></span></div><button class="icon-button" id="sidebar-signout" type="button" aria-label="Sign out"><span data-icon="logout"></span></button></div>
+    </aside>
+    <div class="cms-main-column">
+      <header class="cms-topbar"><button class="icon-button mobile-menu" id="mobile-menu" type="button" aria-label="Open navigation"><span data-icon="menu"></span></button><div class="breadcrumbs"><a href="{{ '/' | relative_url }}">Robby Aprianto</a><span>/</span><span id="crumb-current">Dashboard</span></div><div class="topbar-actions"><span class="connection-state" id="connection-state"><i></i>Connected</span><button class="theme-button" id="theme-main" type="button" aria-label="Change theme"></button></div></header>
+      <main class="cms-content" id="view-root"><div class="skeleton title-skeleton"></div><div class="stat-grid"><div class="skeleton stat-skeleton"></div><div class="skeleton stat-skeleton"></div><div class="skeleton stat-skeleton"></div><div class="skeleton stat-skeleton"></div></div></main>
+    </div>
+    <button class="sidebar-backdrop" id="sidebar-backdrop" type="button" aria-label="Close navigation" hidden></button>
+  </div>
+  <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
+</div>
+<script type="module" src="{{ '/assets/js/admin.js' | relative_url }}"></script>

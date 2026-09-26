@@ -44,7 +44,14 @@ PUBLIC_SUPABASE_URL
 PUBLIC_SUPABASE_ANON_KEY
 ```
 
-This repository has no CMS server runtime, so no fake `/admin` client was added. A static page cannot enforce authentication or protect GitHub credentials. Deploy the server endpoint before adding admin UI actions.
+The publishing backend remains server-only. The public `/admin/` shell is static, while Supabase Auth, RLS, and the Edge Function enforce access and publishing authorization.
+## Admin UI
+
+`/admin/` uses Jekyll-compatible static JavaScript with component-style render functions and semantic CSS tokens. It does not add React or Tailwind because GitHub Pages serves this project as static Jekyll output. It supports responsive navigation, light/dark/system theme, password login, GitHub OAuth, admin profile authorization, dashboard, public GitHub projects, posts, private notes, settings, skeleton/loading states, empty/error states, toast feedback, dialogs, and mobile sidebar.
+
+The project API only returns public repositories. Public project titles render as links. Private repository data is never requested by the browser, so private URLs cannot become accidental public links.
+
+The existing `assets/img/logo.png` is reused. CSS applies a dark filter in light theme and leaves original white text in dark theme; source image is unchanged.
 
 ## Local site
 

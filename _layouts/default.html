@@ -12,6 +12,7 @@
   <meta property="og:type" content="{% if page.layout == 'post' %}article{% else %}website{% endif %}">
   <meta name="twitter:card" content="summary">
   <link rel="alternate" type="application/rss+xml" title="{{ site.title }}" href="{{ '/feed.xml' | absolute_url }}">
+  {% if page.permalink == '/admin/' %}<link rel="stylesheet" href="{{ '/assets/css/admin.css' | relative_url }}">{% endif %}
   <link rel="stylesheet" href="{{ '/assets/css/style.css' | relative_url }}">
 </head>
 <body>
