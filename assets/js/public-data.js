@@ -23,7 +23,7 @@ load('skills', document.querySelector('#public-skills'), rows => {
   return Array.from(groups, ([category, items]) => `<section class="skill-group"><h3>${esc(category)}</h3><div class="skill-grid">${items.map(skill => `<article class="skill-item"><span class="skill-mark" aria-hidden="true">${esc((skill.name || '').slice(0,2))}</span><span>${esc(skill.name)}</span></article>`).join('')}</div></section>`).join('');
 }, { is_active:'eq.true' });
 
-load('profiles', document.querySelector('#about-copy'), rows => rows.slice(0,1).map(profile => `<p>${esc(profile.summary)}</p><p>${esc(profile.location)}</p><p><a href="mailto:${esc(profile.email)}">${esc(profile.email)}</a></p>`).join(''), { is_public:'eq.true' });
+load('profiles', document.querySelector('#about-copy'), rows => rows.slice(0,1).map(profile => `<p>${esc(profile.summary)}</p><p>${esc(profile.location)}</p><p><a href="mailto:${esc(profile.email)}">${esc(profile.email)}</a></p>`).join(''), { is_public:'eq.true' }, 'updated_at.desc');
 load('experiences', document.querySelector('#public-experience'), rows => rows.map(item => `<article class="experience-item"><p>${esc(item.start_date || '')} ${item.end_date ? `to ${esc(item.end_date)}` : 'to Present'}</p><h3>${esc(item.role)}</h3><p>${esc(item.organization)}</p><p>${esc(item.description)}</p></article>`).join(''), { is_public:'eq.true' });
 load('education', document.querySelector('#public-education'), rows => rows.map(item => `<article><h3>${esc(item.credential)}</h3><p>${esc(item.institution)}</p><p>${esc(item.description)}</p></article>`).join(''), { is_public:'eq.true' });
 load('interests', document.querySelector('#public-interests'), rows => rows.map(item => `<span>${esc(item.name)}</span>`).join(''), { is_public:'eq.true' });

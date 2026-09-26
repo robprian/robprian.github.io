@@ -8,7 +8,7 @@ admin_shell: true
 <div id="cms" class="cms" data-supabase-url="{{ site.supabase_url }}" data-supabase-key="{{ site.supabase_anon_key }}" aria-live="polite">
   <section class="auth-screen" id="auth-screen" hidden>
     <div class="auth-card">
-      <a class="cms-brand" href="{{ '/' | relative_url }}"><img class="logo-light" src="{{ '/assets/img/ra-b.png' | relative_url }}" alt="Robby Aprianto"><img class="logo-dark" src="{{ '/assets/img/ra-w.png' | relative_url }}" alt=""></a>
+      <a class="cms-brand" href="{{ '/' | relative_url }}"><img class="logo-light" src="{{ '/assets/img/ra-b.png' | relative_url }}" alt="Robby Aprianto"><img class="logo-dark" src="{{ '/assets/img/ra-w-transparent.png' | relative_url }}" alt=""></a>
       <span class="status-label">Private CMS</span>
       <h1>Welcome back</h1>
       <p>Sign in to manage your portfolio and content.</p>
@@ -20,7 +20,7 @@ admin_shell: true
         <label for="password">Password</label><input class="ui-input" id="password" name="password" type="password" autocomplete="current-password" required>
         <button class="ui-button ui-button-primary ui-button-wide" id="password-login" type="submit">Sign in</button>
       </form>
-      <button class="theme-button auth-theme" id="theme-auth" type="button" aria-label="Change theme"></button>
+      <button class="theme-button icon-theme-button auth-theme" id="theme-auth" type="button" aria-label="Change theme"></button>
     </div>
   </section>
 
@@ -29,7 +29,7 @@ admin_shell: true
 
   <div class="cms-shell" id="cms-shell" hidden>
     <aside class="cms-sidebar" id="cms-sidebar" aria-label="Admin navigation">
-      <a class="cms-brand" href="{{ '/' | relative_url }}"><img class="logo-light" src="{{ '/assets/img/ra-b.png' | relative_url }}" alt="Robby Aprianto"><img class="logo-dark" src="{{ '/assets/img/ra-w.png' | relative_url }}" alt=""><span class="brand-caption">CONTENT STUDIO</span></a>
+      <a class="cms-brand" href="{{ '/' | relative_url }}"><img class="logo-light" src="{{ '/assets/img/ra-b.png' | relative_url }}" alt="Robby Aprianto"><img class="logo-dark" src="{{ '/assets/img/ra-w-transparent.png' | relative_url }}" alt=""><span class="brand-caption">CONTENT STUDIO</span></a>
       <nav class="side-nav" id="side-nav">
         <button class="nav-item is-active" data-view="dashboard"><span data-icon="layout"></span>Dashboard</button>
         <button class="nav-item" data-view="projects"><span data-icon="folder"></span>Projects</button>
