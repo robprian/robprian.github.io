@@ -7,7 +7,7 @@ robots: noindex, nofollow
 <div id="cms" class="cms" data-supabase-url="{{ site.supabase_url }}" data-supabase-key="{{ site.supabase_anon_key }}" aria-live="polite">
   <section class="auth-screen" id="auth-screen" hidden>
     <div class="auth-card">
-      <a class="cms-brand" href="{{ '/' | relative_url }}"><img src="{{ '/assets/img/logo-transparent.png' | relative_url }}" alt="Robby Aprianto"></a>
+      <a class="cms-brand" href="{{ '/' | relative_url }}"><img class="logo-light" src="{{ '/assets/img/ra-b.png' | relative_url }}" alt="Robby Aprianto"><img class="logo-dark" src="{{ '/assets/img/ra-w.png' | relative_url }}" alt=""></a>
       <span class="status-label">Private CMS</span>
       <h1>Welcome back</h1>
       <p>Sign in to manage your portfolio and content.</p>
@@ -28,7 +28,7 @@ robots: noindex, nofollow
 
   <div class="cms-shell" id="cms-shell" hidden>
     <aside class="cms-sidebar" id="cms-sidebar" aria-label="Admin navigation">
-      <a class="cms-brand" href="{{ '/' | relative_url }}"><img src="{{ '/assets/img/logo.png' | relative_url }}" alt="Robby Aprianto"><span class="brand-caption">CONTENT STUDIO</span></a>
+      <a class="cms-brand" href="{{ '/' | relative_url }}"><img class="logo-light" src="{{ '/assets/img/ra-b.png' | relative_url }}" alt="Robby Aprianto"><img class="logo-dark" src="{{ '/assets/img/ra-w.png' | relative_url }}" alt=""><span class="brand-caption">CONTENT STUDIO</span></a>
       <nav class="side-nav" id="side-nav">
         <button class="nav-item is-active" data-view="dashboard"><span data-icon="layout"></span>Dashboard</button>
         <button class="nav-item" data-view="projects"><span data-icon="folder"></span>Projects</button>
