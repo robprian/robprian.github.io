@@ -88,12 +88,14 @@ async function batchPublish() {
 }
 function editorView(post = null) {
   currentDraft = post; const editing = Boolean(post); const oldSlug = post?.slug || '';
-  nodes['view-root'].innerHTML = `${pageHeader('BLOG EDITOR',editing ? 'Edit article' : 'New article','Draft changes save privately in Supabase.',`<button class="ui-button ui-button-secondary" data-action="view-blog">Back to blog</button>`)}<form id="post-editor" class="editor-layout"><section class="ui-card editor-main"><label for="editor-title">Title</label><input class="ui-input editor-title" id="editor-title" value="${html(post?.title)}" placeholder="Give your article a title" required><label for="editor-content">Article content <span>Markdown</span></label><textarea class="ui-input editor-content" id="editor-content" rows="20" placeholder="Write your article in Markdown...">${html(post?.content || '')}</textarea><div class="editor-preview" id="editor-preview"><p>Preview appears here after you write content.</p></div></section><aside class="ui-card editor-settings"><h2>Publishing details</h2><label for="editor-slug">Slug</label><input class="ui-input" id="editor-slug" value="${html(post?.slug)}" placeholder="article-url-slug" required><label for="editor-description">Description</label><textarea class="ui-input" id="editor-description" rows="4" placeholder="Short summary for search and sharing">${html(post?.excerpt)}</textarea><label for="editor-cover">Cover image URL</label><input class="ui-input" id="editor-cover" value="${html(post?.cover_image || '')}" placeholder="https://… (optional)"><div class="cover-preview" id="cover-preview"></div><label for="editor-image-file">Upload image</label><input class="ui-input" id="editor-image-file" type="file" accept="image/*"><button class="ui-button ui-button-secondary ui-button-wide" id="image-upload" type="button">Upload & insert into article</button><div class="upload-status" id="upload-status"></div><div class="editor-status" id="editor-status">${editing ? `Last saved ${formatDate(post.updated_at)}` : 'Unsaved draft'}</div><button class="ui-button ui-button-secondary ui-button-wide" id="draft-save" type="button">Save draft</button><button class="ui-button ui-button-primary ui-button-wide" id="post-publish" type="button">${post?.status === 'PUBLISHED' ? 'Update published post' : 'Publish post'}</button></aside></form>`;
+  nodes['view-root'].innerHTML = `${pageHeader('BLOG EDITOR',editing ? 'Edit article' : 'New article','Draft changes save privately in Supabase.',`<button class="ui-button ui-button-secondary" data-action="view-blog">Back to blog</button>`)}<form id="post-editor" class="editor-layout"><section class="ui-card editor-main"><label for="editor-title">Title</label><input class="ui-input editor-title" id="editor-title" value="${html(post?.title)}" placeholder="Give your article a title" required><label for="editor-content">Article content <span>Markdown</span></label><textarea class="ui-input editor-content" id="editor-content" rows="20" placeholder="Write your article in Markdown...">${html(post?.content || '')}</textarea><div class="editor-preview" id="editor-preview"><p>Preview appears here after you write content.</p></div></section><aside class="ui-card editor-settings"><h2>Publishing details</h2><label for="editor-slug">Slug</label><input class="ui-input" id="editor-slug" value="${html(post?.slug)}" placeholder="article-url-slug" required><label for="editor-description">Description</label><textarea class="ui-input" id="editor-description" rows="4" placeholder="Short summary for search and sharing">${html(post?.excerpt)}</textarea><label for="editor-cover">Cover image URL</label><input class="ui-input" id="editor-cover" value="${html(post?.cover_image || '')}" placeholder="https://… (optional)"><div class="cover-preview" id="cover-preview"></div><button class="ui-button ui-button-secondary ui-button-wide" id="cover-gallery" type="button">Choose cover from tDocs gallery</button><label for="editor-image-file">Upload image</label><input class="ui-input" id="editor-image-file" type="file" accept="image/*"><button class="ui-button ui-button-secondary ui-button-wide" id="image-upload" type="button">Upload & insert into article</button><button class="ui-button ui-button-secondary ui-button-wide" id="content-gallery" type="button">Insert from tDocs gallery</button><div class="upload-status" id="upload-status"></div><div class="editor-status" id="editor-status">${editing ? `Last saved ${formatDate(post.updated_at)}` : 'Unsaved draft'}</div><button class="ui-button ui-button-secondary ui-button-wide" id="draft-save" type="button">Save draft</button><button class="ui-button ui-button-primary ui-button-wide" id="post-publish" type="button">${post?.status === 'PUBLISHED' ? 'Update published post' : 'Publish post'}</button></aside></form>`;
   document.querySelector('#editor-title').addEventListener('input', event => { if (!document.querySelector('#editor-slug').value || !editing) document.querySelector('#editor-slug').value = event.target.value.toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); scheduleSave(); });
   document.querySelector('#editor-content').addEventListener('input', () => { updatePreview(); scheduleSave(); }); updatePreview();
   document.querySelector('#editor-description').addEventListener('input', scheduleSave); document.querySelector('#editor-slug').addEventListener('input', scheduleSave);
   const renderCoverPreview = () => { const preview = document.querySelector('#cover-preview'); const value = document.querySelector('#editor-cover').value.trim(); preview.innerHTML = /^https?:\/\//.test(value) ? `<img src="${html(value)}" alt="Cover preview">` : ''; };
   document.querySelector('#editor-cover').addEventListener('input', () => { renderCoverPreview(); scheduleSave(); }); renderCoverPreview();
+  document.querySelector('#cover-gallery').onclick = () => openTdocsGallery();
+  document.querySelector('#content-gallery').onclick = () => openTdocsGallery();
   document.querySelector('#image-upload').onclick = async () => {
     const fileInput = document.querySelector('#editor-image-file'), status = document.querySelector('#upload-status'), button = document.querySelector('#image-upload');
     if (!supabase || !session?.user) { toast('Session expired. Please sign in again.','error'); return; }
@@ -114,6 +116,55 @@ function editorView(post = null) {
   document.querySelector('#draft-save').onclick = () => saveDraft('DRAFT', oldSlug);
   document.querySelector('#post-publish').onclick = () => saveDraft('PUBLISHED', oldSlug);
   bindViewActions();
+}
+function openTdocsGallery() {
+  if (!supabase || !session?.user) { toast('Session expired. Please sign in again.','error'); return; }
+  const state = { items: [], selected: '', loading: true, error: '' };
+  const modal = document.createElement('dialog');
+  modal.className = 'cms-dialog tdocs-dialog';
+  modal.innerHTML = `<form method="dialog"><button class="icon-button dialog-close" aria-label="Close gallery">${icon('close')}</button></form><h2>tDocs image gallery</h2><p class="dialog-sub">Permanent CDN links. The chosen link never expires.</p><div class="tdocs-search"><label class="search-field">${icon('search')}<input id="tdocs-search" type="search" placeholder="Search images by name" aria-label="Search tDocs images"></label><button class="ui-button ui-button-primary" id="tdocs-search-btn" type="button">Search</button></div><div class="tdocs-status" id="tdocs-status" role="status"></div><div class="tdocs-grid" id="tdocs-grid"></div><div class="dialog-actions tdocs-actions"><span class="tdocs-hint" id="tdocs-hint">Pick an image first.</span><button class="ui-button ui-button-secondary" id="tdocs-cover" type="button" disabled>Use as cover</button><button class="ui-button ui-button-primary" id="tdocs-insert" type="button" disabled>Insert into article</button></div>`;
+  document.body.append(modal);
+  modal.addEventListener('close', () => modal.remove());
+  const grid = modal.querySelector('#tdocs-grid'), status = modal.querySelector('#tdocs-status'), hint = modal.querySelector('#tdocs-hint');
+  const coverBtn = modal.querySelector('#tdocs-cover'), insertBtn = modal.querySelector('#tdocs-insert');
+  const selectedItem = () => state.items.find(item => item.id === state.selected);
+  const render = () => {
+    if (state.loading) { status.innerHTML = '<span class="spinner" aria-hidden="true"></span> Loading gallery'; grid.innerHTML = ''; }
+    else if (state.error) { status.innerHTML = ''; grid.innerHTML = `<div class="tdocs-message"><p>Gallery failed to load: ${html(state.error)}</p><button class="ui-button ui-button-secondary" id="tdocs-retry" type="button">Retry</button></div>`; const retry = grid.querySelector('#tdocs-retry'); if (retry) retry.onclick = () => load(searchInput.value); }
+    else if (!state.items.length) { status.innerHTML = ''; grid.innerHTML = '<div class="tdocs-message"><p>No images found. Upload one to tDocs first, or try another search.</p></div>'; }
+    else { status.textContent = `${state.items.length} image${state.items.length === 1 ? '' : 's'} from tDocs`; grid.innerHTML = state.items.map(item => `<button class="tdocs-item${item.id === state.selected ? ' is-selected' : ''}" data-tdocs-id="${html(item.id)}" type="button" aria-pressed="${item.id === state.selected}"><img src="${html(item.stream_url)}" alt="${html(item.name)}" loading="lazy"><span class="tdocs-name">${html(item.name)}</span></button>`).join(''); grid.querySelectorAll('[data-tdocs-id]').forEach(button => button.onclick = () => { state.selected = button.dataset.tdocsId; const picked = selectedItem(); hint.textContent = picked ? picked.name : 'Pick an image first.'; coverBtn.disabled = insertBtn.disabled = !picked; render(); const again = grid.querySelector(`[data-tdocs-id="${state.selected}"]`); if (again) again.focus(); }); }
+    if (state.loading || state.error || !state.items.length) { hint.textContent = 'Pick an image first.'; coverBtn.disabled = true; insertBtn.disabled = true; }
+  };
+  const load = async search => {
+    state.loading = true; state.error = ''; state.selected = ''; render();
+    try {
+      const params = new URLSearchParams({ limit: '60' });
+      if (search.trim()) params.set('search', search.trim());
+      const res = await fetch(`${config.url}/functions/v1/tdocs-gallery?${params}`, { headers: { Authorization: `Bearer ${session.access_token}` } });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || `Gallery request failed (HTTP ${res.status}).`);
+      state.items = Array.isArray(data.files) ? data.files : [];
+    } catch (error) { state.error = error?.message || 'unexpected error'; }
+    state.loading = false; render();
+  };
+  const searchInput = modal.querySelector('#tdocs-search');
+  modal.querySelector('#tdocs-search-btn').onclick = () => load(searchInput.value);
+  searchInput.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); load(searchInput.value); } });
+  coverBtn.onclick = () => {
+    const picked = selectedItem(); if (!picked) return;
+    const coverInput = document.querySelector('#editor-cover');
+    if (coverInput) { coverInput.value = picked.stream_url; coverInput.dispatchEvent(new Event('input')); }
+    modal.close(); toast('Cover set from tDocs gallery.');
+  };
+  insertBtn.onclick = () => {
+    const picked = selectedItem(); if (!picked) return;
+    const area = document.querySelector('#editor-content');
+    if (area) { insertAtCursor(area, `\n\n![${picked.name.replace(/[\[\]()]/g,'')}](${picked.stream_url})\n`); updatePreview(); scheduleSave(); }
+    modal.close(); toast('Image inserted from tDocs gallery.');
+  };
+  modal.showModal();
+  searchInput.focus();
+  load('');
 }
 function renderMarkdown(markdown) {
   const codeBlocks = [], inlineCodes = [];

@@ -3,6 +3,7 @@ layout: post
 title: "5 Cara Mengecek dan Menganalisis Penggunaan Resource Linux"
 date: 2026-09-26 13:47:36 +0000
 description: "Panduan praktis untuk mengecek CPU, RAM, disk, process, dan resource usage pada server Linux menggunakan command-line tools."
+image: "https://docs.ghazi.biz.id/cdn/3399baebec2abb3c/stream"
 categories: []
 tags: []
 ---
