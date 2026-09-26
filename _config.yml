@@ -1,33 +1,34 @@
 title: Robby Aprianto
 email: robprian@gmail.com
-description: System Engineer | Linux & Infra Enthusiast
+description: System Engineer focused on Linux, infrastructure, automation, DevOps, and cloud systems.
 baseurl: ""
 url: "https://robprian.github.io"
-
-# Theme settings
-theme: al-folio
-permalink: /blog/:year/:title/
-
-# Navigation
-navbar_fixed: true
-footer_fixed: true
-
-# Blog settings
-blog_name: Blog
-blog_description: My writings and tutorials about Linux, Infrastructure, and DevOps
-github_username: robprian
-
-# Other settings
-keywords: "System Engineer, Linux, Infrastructure, Blog, DevOps"
 lang: en
+permalink: /blog/:year/:title/
+markdown: kramdown
+highlighter: rouge
+future: false
+show_drafts: false
 
-# Google Analytics
-google_analytics: UA-XXXXXXXXX-X
+# Public client configuration. Supabase anon keys are designed for browser use.
+# Keep service-role and GitHub credentials outside this file.
+supabase_url: ""
+supabase_anon_key: ""
 
-# Social links
+blog_name: Field Notes
+blog_description: Practical notes about Linux, infrastructure, automation, and DevOps.
+github_username: robprian
+keywords: "System Engineer, Linux, Infrastructure, Automation, DevOps, Cloud"
+
 social:
   email: robprian@gmail.com
   github: robprian
   linkedin: robbyaprianto
   twitter: robbyyapr
   instagram: robbyyapr
+
+exclude:
+  - README.md
+  - Gemfile
+  - Gemfile.lock
+  - supabase/functions

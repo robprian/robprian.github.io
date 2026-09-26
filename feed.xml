@@ -1,0 +1,5 @@
+---
+layout: null
+---
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel><title>{{ site.title | xml_escape }}</title><description>{{ site.description | xml_escape }}</description><link>{{ site.url }}</link>{% for post in site.posts %}<item><title>{{ post.title | xml_escape }}</title><link>{{ site.url }}{{ post.url }}</link><pubDate>{{ post.date | date_to_rfc822 }}</pubDate><description>{{ post.excerpt | strip_html | xml_escape }}</description><guid>{{ site.url }}{{ post.url }}</guid></item>{% endfor %}</channel></rss>
