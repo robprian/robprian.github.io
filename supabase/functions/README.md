@@ -42,3 +42,17 @@ supabase secrets set TDOCS_API_TOKEN="tdocs_..."
 
 Returned `stream_url` values are permanent `/cdn/{id}/stream` links
 (never expired), safe to store as post covers or inline images.
+
+## tdocs-upload (CMS image uploads to tDocs)
+
+The blog editor sends new cover/content uploads through the
+`tdocs-upload` function, which runs the tDocs chunked upload
+(init, 5 MB chunks, complete) with the server-only API token and returns
+a permanent `/cdn/{id}/stream` URL. Deploy it (same secrets as gallery):
+
+```bash
+supabase functions deploy tdocs-upload
+```
+
+Images uploaded earlier to the `blog-images` storage bucket keep working;
+only new uploads go to tDocs.

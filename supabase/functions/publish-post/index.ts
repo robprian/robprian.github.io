@@ -42,9 +42,23 @@ Deno.serve(async request => {
   const owner=Deno.env.get('REPO_OWNER')!,repo=Deno.env.get('REPO_NAME')!,branch=Deno.env.get('REPO_BRANCH')||'main',githubToken=Deno.env.get('GH_PAT')
   if(!githubToken) return response(request, {error:'Publishing is not configured. Draft retained.'},503)
   let sha=existing?.github_sha
-  if(existing?.github_path&&!sha){const getFile=await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(branch)}`,{headers:{Authorization:`Bearer ${githubToken}`,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}});if(getFile.ok){const file=await getFile.json();sha=file.sha}else if(getFile.status!==404)return response(request, {error:'Unable to check existing article. Draft retained.'},502)}
-  const body={message:`Publish post: ${title}`,content:btoa(unescape(encodeURIComponent(markdown))),branch,...(sha?{sha}:{})}
-  const write=await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`,{method:'PUT',headers:{Authorization:`Bearer ${githubToken}`,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'},body:JSON.stringify(body)})
+  const fileUrl=`https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`
+  const ghHeaders={Authorization:`Bearer ${githubToken}`,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}
+  if(existing?.github_path&&!sha){const getFile=await fetch(`${fileUrl}?ref=${encodeURIComponent(branch)}`,{headers:ghHeaders});if(getFile.ok){const file=await getFile.json();sha=file.sha}else if(getFile.status!==404)return response(request, {error:'Unable to check existing article. Draft retained.'},502)}
+  const putFile=(fileSha?: string)=>fetch(fileUrl,{method:'PUT',headers:{...ghHeaders,'Content-Type':'application/json'},body:JSON.stringify({message:`Publish post: ${title}`,content:btoa(unescape(encodeURIComponent(markdown))),branch,...(fileSha?{sha:fileSha}:{})})})
+  let write=await putFile(sha)
+  if(!write.ok&&(write.status===409||write.status===422)){
+    const check=await fetch(`${fileUrl}?ref=${encodeURIComponent(branch)}`,{headers:ghHeaders})
+    if(check.status===404){write=await putFile(undefined)}
+    else if(check.ok){
+      const remote=await check.json()
+      if(remote?.sha&&remote.sha!==sha){
+        await db.from('drafts').update({github_sha:remote.sha}).eq('id',draft.id)
+        await db.from('posts_metadata').update({github_sha:remote.sha}).eq('slug',slug)
+        return response(request, {error:'Remote file changed outside the CMS. Stored reference refreshed from GitHub. Review the draft against the live article, then publish again.'},409)
+      }
+    }
+  }
   if(!write.ok) return response(request, {error:write.status===409||write.status===422?'GitHub file changed concurrently. Draft retained; retry publish.':'GitHub publishing failed. Draft retained.'},write.status===409||write.status===422?409:502)
   const result=await write.json()
   const metadata={user_id:user.id,slug,title,excerpt:summary,status:'PUBLISHED',github_path:path,github_sha:result.content?.sha||null,content,cover_image:coverImage||null,published_at:now.toISOString(),updated_at:now.toISOString()}
