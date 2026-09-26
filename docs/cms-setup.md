@@ -10,6 +10,8 @@ Public Jekyll remains static. CMS data and private notes stay in Supabase. A ser
 4. Insert that user's UUID and email into `admin_profiles`.
 5. Keep email allowlisting in the server-side endpoint. Never use editable `user_metadata` for authorization.
 6. Configure redirect URL for `/admin/` in Supabase Auth.
+7. Configure Auth URL Configuration site URL as `https://robprian.github.io` and redirect URL as `https://robprian.github.io/admin/`.
+8. If enabling Supabase OAuth Server, implement its consent route at `/oauth/consent`; this site uses Supabase Auth GitHub OAuth for admin login, not an OAuth server client registry.
 
 ## Server endpoint contract
 

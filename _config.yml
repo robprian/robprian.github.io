@@ -9,11 +9,8 @@ markdown: kramdown
 highlighter: rouge
 future: false
 show_drafts: false
-
-# Public client configuration. Supabase anon keys are designed for browser use.
-# Keep service-role and GitHub credentials outside this file.
-supabase_url: ""
-supabase_anon_key: ""
+supabase_url: "https://icwjscdlcuplbogcbuyi.supabase.co"
+supabase_anon_key: "sb_publishable_FgFjFAIgfKzK8OMvH6h5qQ_RnMuOzWZ"
 
 blog_name: Field Notes
 blog_description: Practical notes about Linux, infrastructure, automation, and DevOps.
