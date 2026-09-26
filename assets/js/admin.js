@@ -25,7 +25,8 @@ async function setSession(nextSession) {
   session = nextSession;
   if (!session) { authorizedScreen('login'); return; }
   const { data, error } = await supabase.from('admin_profiles').select('user_id,email').eq('user_id', session.user.id).maybeSingle();
-  if (error || !data) { profile = null; await supabase.auth.signOut(); authorizedScreen('denied'); return; }
+  if (error) { showAuthError('Unable to verify admin access. Database setup is incomplete.'); authorizedScreen('login'); return; }
+  if (!data) { profile = null; authorizedScreen('denied'); return; }
   profile = data; nodes['account-email'].textContent = data.email || session.user.email || ''; nodes['account-name'].textContent = session.user.user_metadata?.user_name || session.user.user_metadata?.name || 'Robby Aprianto'; nodes['account-avatar'].textContent = (nodes['account-name'].textContent.match(/\b\w/g) || ['R','A']).join('').slice(0,2).toUpperCase();
   authorizedScreen('cms'); await loadView(currentView);
 }

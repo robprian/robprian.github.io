@@ -1,10 +1,9 @@
 <header class="site-header">
-  <nav class="navbar" aria-label="Main navigation">
-    <div class="nav-inner"><a class="brand" href="{{ '/' | relative_url }}" aria-label="{{ site.title }} home"><span class="brand-mark">RA</span><span>{{ site.title }}</span></a>
-      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-menu"><span class="menu-label">Menu</span><span aria-hidden="true">+</span></button>
-      <div class="nav-menu" id="site-menu"><a href="{{ '/' | relative_url }}#about">About</a><a href="{{ '/' | relative_url }}#skills">Skills</a><a href="{{ '/projects/' | relative_url }}">Projects</a><a href="{{ '/blog/' | relative_url }}">Blog</a><a href="{{ '/' | relative_url }}#contact">Contact</a><a class="nav-github" href="https://github.com/{{ site.github_username }}" aria-label="Robby Aprianto on GitHub">GH</a></div>
-    </div>
-  </nav>
+  <nav class="navbar" aria-label="Main navigation"><div class="nav-inner">
+    <a class="brand" href="{{ '/' | relative_url }}" aria-label="{{ site.title }} home"><img src="{{ '/assets/img/logo-transparent.png' | relative_url }}" alt="{{ site.title }}"></a>
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-menu"><span class="menu-label">Menu</span><span aria-hidden="true">+</span></button>
+    <div class="nav-menu" id="site-menu"><a href="{{ '/' | relative_url }}#about">About</a><a href="{{ '/' | relative_url }}#skills">Skills</a><a href="{{ '/projects/' | relative_url }}">Projects</a><a href="{{ '/blog/' | relative_url }}">Blog</a><a href="{{ '/' | relative_url }}#contact">Contact</a><a class="nav-github" href="https://github.com/{{ site.github_username }}" aria-label="Robby Aprianto on GitHub">GH</a></div>
+  </div></nav>
 </header>
 <script>
   const toggle = document.querySelector('.menu-toggle');

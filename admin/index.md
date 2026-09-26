@@ -7,7 +7,7 @@ robots: noindex, nofollow
 <div id="cms" class="cms" data-supabase-url="{{ site.supabase_url }}" data-supabase-key="{{ site.supabase_anon_key }}" aria-live="polite">
   <section class="auth-screen" id="auth-screen" hidden>
     <div class="auth-card">
-      <a class="cms-brand" href="{{ '/' | relative_url }}"><img src="{{ '/assets/img/logo.png' | relative_url }}" alt="Robby Aprianto"></a>
+      <a class="cms-brand" href="{{ '/' | relative_url }}"><img src="{{ '/assets/img/logo-transparent.png' | relative_url }}" alt="Robby Aprianto"></a>
       <span class="status-label">Private CMS</span>
       <h1>Welcome back</h1>
       <p>Sign in to manage your portfolio and content.</p>
