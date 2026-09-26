@@ -1,11 +1,13 @@
 ---
 layout: post
 title: "Panduan Monitoring CPU, RAM, Disk, dan Load Average di Linux"
-date: 2026-09-26 14:43:49 +0000
+date: 2026-09-26 15:02:18 +0000
 description: "Memahami cara membaca penggunaan CPU, RAM, disk, dan load average pada server Linux untuk membantu troubleshooting dan capacity planning."
+image: "https://docs.ghazi.biz.id/cdn/9da4c92a8173384f/stream"
 categories: []
 tags: []
 ---
+
 
 
 ![Panduan Monitoring CPU, RAM, Disk, dan Load Average di Linux.png](https://docs.ghazi.biz.id/cdn/9da4c92a8173384f/stream)
