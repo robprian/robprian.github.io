@@ -21,7 +21,7 @@ Set `PROJECT_URL` to `https://icwjscdlcuplbogcbuyi.supabase.co`. `SERVICE_ROLE_K
 Set `ADMIN_ORIGINS` to every origin the CMS is served from, comma-separated, for example:
 
 ```text
-https://robprian.github.io,http://gh.robrion.net,https://gh.robrion.net
+https://robprian.github.io,http://www.robrion.net,https://www.robrion.net
 ```
 
 Browsers block Edge Function responses (including error responses) when the page
