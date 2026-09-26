@@ -29,17 +29,20 @@ permalink: /
 
 <section class="split-section" id="about" aria-labelledby="about-title">
   <div class="section-intro"><p class="eyebrow">01 / ABOUT</p><h2 id="about-title">Engineering with a bias for clarity.</h2></div>
-  <div class="section-body"><p>I am Robby Aprianto, a System Engineer interested in reliable Linux systems, infrastructure automation, and DevOps practices.</p><p>I use this space to share what I learn, explain the work behind deployments, and keep technical decisions understandable.</p><a class="text-link" href="mailto:{{ site.email }}">Start a conversation</a></div>
+  <div class="section-body" id="about-copy"><p>Loading profile…</p><a class="text-link" href="mailto:{{ site.email }}">Contact Robby</a></div>
 </section>
+<section class="experience-section" id="experience" aria-labelledby="experience-title"><div class="section-heading"><p class="eyebrow">03 / EXPERIENCE</p><h2 id="experience-title">Work across infrastructure and operations.</h2></div><div class="experience-timeline" id="public-experience"><p class="data-state">Loading experience…</p></div></section>
+<section class="education-section" id="education" aria-labelledby="education-title"><div class="section-heading"><p class="eyebrow">04 / EDUCATION</p><h2 id="education-title">Education and continuing interests.</h2></div><div class="education-grid" id="public-education"><p class="data-state">Loading education…</p></div><div class="interest-list" id="public-interests"></div></section>
 
 <section class="skills-section" id="skills" aria-labelledby="skills-title">
-  <div class="section-heading"><p class="eyebrow">02 / TOOLKIT</p><h2 id="skills-title">Tools I use to move work forward.</h2></div>
-  <div class="skill-list" aria-label="Skills"><span>Linux</span><span>Docker</span><span>Cloud infrastructure</span><span>Git</span><span>CI/CD</span><span>Bash</span><span>Python</span><span>Networking</span><span>Monitoring</span></div>
+  <div class="section-heading"><p class="eyebrow">02 / CAPABILITIES</p><h2 id="skills-title">Skills built around operational work.</h2></div>
+  <div class="skill-groups" id="public-skills"><p class="data-state">Loading skills…</p></div>
 </section>
 
+<script type="module" src="{{ '/assets/js/public-data.js' | relative_url }}"></script>
 <section class="latest-section" id="latest" aria-labelledby="latest-title">
   <div class="section-heading"><p class="eyebrow">03 / LATEST</p><h2 id="latest-title">Recent field notes.</h2><a class="text-link" href="{{ '/blog/' | relative_url }}">All notes</a></div>
-  <div class="post-grid">{% for post in site.posts limit:3 %}<article class="post-card"><p class="post-meta">{{ post.date | date: "%d %b %Y" }}{% if post.categories.size > 0 %} · {{ post.categories | first }}{% endif %}</p><h3><a href="{{ post.url | relative_url }}">{{ post.title }}</a></h3><p>{{ post.excerpt | strip_html | truncate: 150 }}</p><a class="text-link" href="{{ post.url | relative_url }}">Read article</a></article>{% else %}<p class="empty-state">No published notes yet.</p>{% endfor %}</div>
+  <div class="post-grid" id="public-posts"><p class="data-state">Loading published articles…</p></div>
 </section>
 
 <section class="contact-section" id="contact" aria-labelledby="contact-title"><p class="eyebrow">04 / CONTACT</p><h2 id="contact-title">Have a system worth making clearer?</h2><a class="button button-primary" href="mailto:{{ site.email }}">Email Robby</a></section>

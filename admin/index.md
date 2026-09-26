@@ -3,6 +3,7 @@ layout: default
 title: Admin
 permalink: /admin/
 robots: noindex, nofollow
+admin_shell: true
 ---
 <div id="cms" class="cms" data-supabase-url="{{ site.supabase_url }}" data-supabase-key="{{ site.supabase_anon_key }}" aria-live="polite">
   <section class="auth-screen" id="auth-screen" hidden>
@@ -32,6 +33,7 @@ robots: noindex, nofollow
       <nav class="side-nav" id="side-nav">
         <button class="nav-item is-active" data-view="dashboard"><span data-icon="layout"></span>Dashboard</button>
         <button class="nav-item" data-view="projects"><span data-icon="folder"></span>Projects</button>
+        <button class="nav-item" data-action="sync-projects"><span data-icon="refresh"></span>Sync GitHub</button>
         <button class="nav-item" data-view="blog"><span data-icon="file"></span>Blog</button>
         <button class="nav-item" data-view="notes"><span data-icon="lock"></span>Private notes</button>
         <button class="nav-item" data-view="settings"><span data-icon="settings"></span>Settings</button>

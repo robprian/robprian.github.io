@@ -1,21 +1,35 @@
-# Private CMS setup
+# Portfolio CMS and deployment
 
-Public Jekyll remains static. CMS data and private notes stay in Supabase. A server-side publishing endpoint must call GitHub Contents API; GitHub Pages cannot safely hold that endpoint or its credentials.
+## Architecture
 
-## Supabase
+- Public site and published article pages remain static Jekyll/GitHub Pages.
+- Public profile, skills, experience, education, interests, projects, and article listing read from Supabase public RLS views/tables.
+- `/admin/` uses a separate Jekyll shell branch and does not include the public header or footer.
+- Authenticated GitHub repository sync reads owned repos server-side, including private repo names. Public `public_projects` view omits private `public_url` and `homepage`. User chose to expose private repo names publicly, which reveals that private repositories exist.
+- Published article bodies are still Jekyll Markdown in `_posts/`. Supabase draft/body metadata is saved before publishing; GitHub Contents API commit triggers Pages build. Private notes remain Supabase-only.
 
-1. Create Supabase project.
-2. Run `supabase/migrations/001_cms.sql` in SQL editor or through Supabase CLI.
-3. Create the admin user in Supabase Auth.
-4. Insert that user's UUID and email into `admin_profiles`.
-5. Keep email allowlisting in the server-side endpoint. Never use editable `user_metadata` for authorization.
-6. Configure redirect URL for `/admin/` in Supabase Auth.
-7. Configure Auth URL Configuration site URL as `https://robprian.github.io` and redirect URL as `https://robprian.github.io/admin/`.
-8. If enabling Supabase OAuth Server, implement its consent route at `/oauth/consent`; this site uses Supabase Auth GitHub OAuth for admin login, not an OAuth server client registry.
+## Database deploy and CV import
 
-## Server endpoint contract
+1. Apply `supabase/migrations/20260926055220_portfolio_cms.sql` after existing `001_cms.sql` using Supabase SQL Editor or CLI.
+2. Run `supabase/seed/import-portfolio.sql` in Supabase SQL Editor. Stable `source_key` values make imports repeatable.
+3. Verify row counts using `docs/data-migration.md` queries.
+4. Private/admin row reads and writes are authorized through `admin_profiles`-checked RLS policies.
 
-Deploy an Edge Function or separate server with these server-only variables:
+The repo contains no CV document. Import uses CV details included in user instructions and preserves the one tracked Jekyll post.
+
+## GitHub repository sync
+
+Deploy `supabase/functions/sync-github-projects` with server secrets `GH_PAT`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `ADMIN_ORIGIN`. `.github/workflows/sync-projects.yml` runs `scripts/sync_projects.py` on manual dispatch or daily; configure matching repository secrets. Current authenticated GitHub inventory was checked: 160 owned repositories, 90 public, 70 private.
+
+Public view includes private names and descriptions as user explicitly requested, but omits private repository URL and homepage. Never make the source `projects` table public.
+
+## Authentication
+
+Supabase Auth GitHub OAuth returns to `https://robprian.github.io/admin/`. Allow this redirect in Supabase Auth URL settings. Password sign-in stays available. Only Auth users present in `admin_profiles` may enter CMS. Do not store passwords in repository files.
+
+## Server secrets
+
+Edge Function only:
 
 ```text
 SUPABASE_URL
@@ -25,47 +39,16 @@ REPO_OWNER=robprian
 REPO_NAME=robprian.github.io
 REPO_BRANCH=main
 ADMIN_EMAIL
+ADMIN_ORIGIN=https://robprian.github.io
 ```
 
-GitHub Actions rejects secret names beginning with `GITHUB_`, so repository secrets use `GH_PAT`, `REPO_OWNER`, `REPO_NAME`, and `REPO_BRANCH`.
+Never place these values in Jekyll source or browser JavaScript. Browser configuration may include only Supabase URL and publishable key.
 
-The endpoint must validate the Supabase access token with `auth.getUser`, require the allowlisted email, validate slug/frontmatter, and use the GitHub Contents API. It must pass the current file SHA for updates, reject SHA conflicts, serialize writes per path, validate uploads by MIME and byte limit, and keep the draft when GitHub rejects a write.
-
-## GitHub secret safety
-
-The supplied PAT was stored as repository secret `GH_PAT`; its value is not written to files or commit messages. Rotate that PAT immediately because it was pasted into chat. Use a fine-grained token scoped only to this repository's Contents write permission. Do not store `.env`; only `.env.example` is tracked.
-
-## Public client variables
-
-Only these may enter browser code:
-
-```text
-PUBLIC_SUPABASE_URL
-PUBLIC_SUPABASE_ANON_KEY
-```
-
-The publishing backend remains server-only. The public `/admin/` shell is static, while Supabase Auth, RLS, and the Edge Function enforce access and publishing authorization.
-## Admin UI
-
-`/admin/` uses Jekyll-compatible static JavaScript with component-style render functions and semantic CSS tokens. It does not add React or Tailwind because GitHub Pages serves this project as static Jekyll output. It supports responsive navigation, light/dark/system theme, password login, GitHub OAuth, admin profile authorization, dashboard, public GitHub projects, posts, private notes, settings, skeleton/loading states, empty/error states, toast feedback, dialogs, and mobile sidebar.
-
-The project API only returns public repositories. Public project titles render as links. Private repository data is never requested by the browser, so private URLs cannot become accidental public links.
-
-The existing `assets/img/logo.png` is reused. CSS applies a dark filter in light theme and leaves original white text in dark theme; source image is unchanged.
-## Admin account authorization
-
-Do not put admin passwords in Git, SQL, Jekyll, or browser code. Create or invite the user in Supabase Auth, then run `supabase/seed/admin-profile.sql` in the Supabase SQL editor. It allowlists either configured admin email without copying a password. The login password must be set through Supabase Auth only.
-
-Current observed production state: `public.admin_profiles` was missing from the Data API, so `/admin/` correctly cannot authorize a session. Deploy the migration first, then run the seed SQL and verify the row exists.
-
-## Local site
+## Local checks
 
 ```sh
-gem install bundler jekyll
-bundle install
-bundle exec jekyll serve
+node --check assets/js/admin.js
+node --check assets/js/public-data.js
+python3 -m py_compile scripts/sync_projects.py
+bundle exec jekyll build --strict-front-matter
 ```
-
-## GitHub Pages
-
-Configure Pages to deploy from the repository's GitHub Actions workflow after adding the standard Jekyll build/deploy workflow in repository settings. Set `url` and `baseurl` in `_config.yml` to match Pages.

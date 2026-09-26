@@ -1,40 +1,49 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
-const cors = { 'Access-Control-Allow-Origin': Deno.env.get('ADMIN_ORIGIN') ?? '', 'Access-Control-Allow-Headers': 'authorization, content-type', 'Content-Type': 'application/json' }
-const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: cors })
-const safeSlug = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80)
-const yaml = (value: string) => JSON.stringify(value.replace(/[\r\n]/g, ' ').trim())
+const allowedOrigin = Deno.env.get('ADMIN_ORIGIN') ?? ''
+const headers = { 'Access-Control-Allow-Origin': allowedOrigin, 'Access-Control-Allow-Headers': 'authorization, content-type', 'Content-Type': 'application/json' }
+const response = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers })
+const slugify = (value: string) => value.toLowerCase().trim().replace(/[^a-z0-9-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80)
+const yaml = (value: string) => JSON.stringify(value.replace(/[\r\n]/g,' ').trim())
 
-Deno.serve(async (request) => {
-  if (request.method === 'OPTIONS') return new Response('ok', { headers: cors })
-  if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
-  const authorization = request.headers.get('Authorization')
-  if (!authorization?.startsWith('Bearer ')) return json({ error: 'Unauthorized' }, 401)
-
-  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { global: { headers: { Authorization: authorization } } })
-  const { data: { user }, error: userError } = await supabase.auth.getUser(authorization.slice(7))
-  if (userError || !user?.email) return json({ error: 'Unauthorized' }, 401)
-  if (user.email.toLowerCase() !== Deno.env.get('ADMIN_EMAIL')?.toLowerCase()) return json({ error: 'Forbidden' }, 403)
-
-  const input = await request.json().catch(() => null)
-  const title = typeof input?.title === 'string' ? input.title.trim().slice(0, 200) : ''
-  const slug = safeSlug(typeof input?.slug === 'string' ? input.slug : title)
-  const content = typeof input?.content === 'string' ? input.content.slice(0, 200_000) : ''
-  const action = input?.action === 'publish' ? 'publish' : 'draft'
-  if (!title || !slug || !content) return json({ error: 'Title, slug, and content are required' }, 400)
-
-  const now = new Date().toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, ' +0000')
-  const path = `_posts/${now.slice(0, 10)}-${slug}.md`
-  const markdown = `---\nlayout: post\ntitle: ${yaml(title)}\ndate: ${now}\ndescription: ${yaml(content.replace(/[#*_`]/g, '').slice(0, 160))}\ncategories: []\ntags: []\n---\n\n${content}\n`
-  const { data: draft, error: draftError } = await supabase.from('drafts').upsert({ user_id: user.id, slug, title, content, status: action === 'publish' ? 'PUBLISHED' : 'DRAFT', github_path: action === 'publish' ? path : null, updated_at: new Date().toISOString() }, { onConflict: 'user_id,slug' }).select('id').single()
-  if (draftError) return json({ error: 'Draft save failed' }, 500)
-  if (action !== 'publish') return json({ message: 'Draft saved', draft_id: draft.id })
-
-  const owner = Deno.env.get('REPO_OWNER')!, repo = Deno.env.get('REPO_NAME')!, branch = Deno.env.get('REPO_BRANCH') ?? 'main', token = Deno.env.get('GH_PAT')!
-  const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`, { method: 'PUT', headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json' }, body: JSON.stringify({ message: `Publish post: ${title}`, content: btoa(unescape(encodeURIComponent(markdown))), branch }) })
-  if (!response.ok) return json({ error: 'GitHub publish failed. Draft retained for retry.' }, response.status === 409 ? 409 : 502)
-  const result = await response.json()
-  await supabase.from('drafts').update({ github_sha: result.content?.sha, published_at: new Date().toISOString() }).eq('id', draft.id).eq('user_id', user.id)
-  await supabase.from('posts_metadata').upsert({ user_id: user.id, slug, title, excerpt: content.replace(/[#*_`]/g, '').slice(0, 160), status: 'PUBLISHED', github_path: path, github_sha: result.content?.sha, published_at: new Date().toISOString(), updated_at: new Date().toISOString() }, { onConflict: 'slug' })
-  return json({ message: 'Published to GitHub', path, sha: result.content?.sha })
+Deno.serve(async request => {
+  if(request.method==='OPTIONS') return new Response('ok',{headers})
+  if(request.method!=='POST') return response({error:'Method not allowed'},405)
+  const authorization=request.headers.get('Authorization')
+  if(!authorization?.startsWith('Bearer ')) return response({error:'Unauthorized'},401)
+  const token=authorization.slice(7)
+  const db=createClient(Deno.env.get('PROJECT_URL')!,Deno.env.get('SERVICE_ROLE_KEY')!)
+  const {data:{user},error:userError}=await db.auth.getUser(token)
+  if(userError||!user) return response({error:'Unauthorized'},401)
+  const {data:admin}=await db.from('admin_profiles').select('user_id').eq('user_id',user.id).maybeSingle()
+  if(!admin) return response({error:'Forbidden'},403)
+  let input:Record<string,unknown>
+  try { input=await request.json() } catch { return response({error:'Invalid request'},400) }
+  const title=typeof input.title==='string'?input.title.trim().slice(0,200):''
+  const slug=slugify(typeof input.slug==='string'?input.slug:title)
+  const content=typeof input.content==='string'?input.content:''
+  const description=typeof input.description==='string'?input.description.trim().slice(0,300):''
+  if(!title||!slug||!content||content.length>200000) return response({error:'Title, slug, and content are required; content limit is 200 KB'},400)
+  const {data:existing}=await db.from('drafts').select('github_path,github_sha').eq('user_id',user.id).eq('slug',slug).maybeSingle()
+  const now=new Date()
+  const date=now.toISOString().replace('T',' ').replace(/\.\d{3}Z$/,' +0000')
+  const path=existing?.github_path||`_posts/${date.slice(0,10)}-${slug}.md`
+  const summary=description||content.replace(/[#*_`]/g,' ').replace(/\s+/g,' ').trim().slice(0,180)
+  const markdown=`---\nlayout: post\ntitle: ${yaml(title)}\ndate: ${date}\ndescription: ${yaml(summary)}\ncategories: []\ntags: []\n---\n\n${content}\n`
+  const draftPayload={user_id:user.id,slug,title,description:summary,content,status:'DRAFT',github_path:existing?.github_path||null,github_sha:existing?.github_sha||null,updated_at:now.toISOString()}
+  const {data:draft,error:draftError}=await db.from('drafts').upsert(draftPayload,{onConflict:'user_id,slug'}).select('id').single()
+  if(draftError) return response({error:'Draft save failed'},500)
+  const owner=Deno.env.get('REPO_OWNER')!,repo=Deno.env.get('REPO_NAME')!,branch=Deno.env.get('REPO_BRANCH')||'main',githubToken=Deno.env.get('GH_PAT')
+  if(!githubToken) return response({error:'Publishing is not configured. Draft retained.'},503)
+  let sha=existing?.github_sha
+  if(existing?.github_path&&!sha){const getFile=await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(branch)}`,{headers:{Authorization:`Bearer ${githubToken}`,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}});if(getFile.ok){const file=await getFile.json();sha=file.sha}else if(getFile.status!==404)return response({error:'Unable to check existing article. Draft retained.'},502)}
+  const body={message:`Publish post: ${title}`,content:btoa(unescape(encodeURIComponent(markdown))),branch,...(sha?{sha}:{})}
+  const write=await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`,{method:'PUT',headers:{Authorization:`Bearer ${githubToken}`,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'},body:JSON.stringify(body)})
+  if(!write.ok) return response({error:write.status===409||write.status===422?'GitHub file changed concurrently. Draft retained; retry publish.':'GitHub publishing failed. Draft retained.'},write.status===409||write.status===422?409:502)
+  const result=await write.json()
+  const metadata={user_id:user.id,slug,title,excerpt:summary,status:'PUBLISHED',github_path:path,github_sha:result.content?.sha||null,content,published_at:now.toISOString(),updated_at:now.toISOString()}
+  const {error:metaError}=await db.from('posts_metadata').upsert(metadata,{onConflict:'slug'})
+  if(metaError) return response({error:'Article committed but metadata sync failed. Retry sync.'},502)
+  await db.from('drafts').update({...draftPayload,status:'PUBLISHED',github_path:path,github_sha:result.content?.sha||null,published_at:now.toISOString()}).eq('id',draft.id).eq('user_id',user.id)
+  return response({message:'Published to GitHub Pages',path,sha:result.content?.sha||null})
 })
