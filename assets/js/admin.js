@@ -13,7 +13,7 @@ const emptyState = (title, description, action = '') => `<div class="empty-state
 const dialog = (title, message, confirmLabel, onConfirm) => { const modal = document.createElement('dialog'); modal.className = 'cms-dialog'; modal.innerHTML = `<form method="dialog"><button class="icon-button dialog-close" aria-label="Close">${icon('close')}</button></form><h2>${title}</h2><p>${message}</p><div class="dialog-actions"><button class="ui-button ui-button-secondary" data-cancel>Cancel</button><button class="ui-button ui-button-danger" data-confirm>${confirmLabel}</button></div>`; document.body.append(modal); modal.showModal(); modal.querySelector('[data-cancel]').onclick = () => modal.close(); modal.querySelector('[data-confirm]').onclick = async () => { await onConfirm(); modal.close(); }; modal.addEventListener('close', () => modal.remove()); };
 function confirmButton(text, event) { return `<button class="ui-button ui-button-secondary" type="button" data-action="${event}">${text}</button>`; }
 
-let supabase, session, profile, currentView = 'dashboard', repoData = [], postsData = [], notesData = [], currentDraft = null, saveTimer, systemTheme;
+let supabase, session, profile, currentView = 'dashboard', repoData = [], postsData = [], notesData = [], currentDraft = null, saveTimer, systemTheme, isSaving = false, selectedPosts = new Set();
 const themeKey = 'ra-theme';
 function applyTheme(mode) { const actual = mode === 'system' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : mode; document.documentElement.dataset.theme = actual; document.documentElement.dataset.themeMode = mode; document.documentElement.style.colorScheme = actual; document.querySelectorAll('.theme-button').forEach(button => { button.innerHTML = `${icon(actual === 'dark' ? 'sun' : 'moon')}<span>${mode === 'system' ? 'System' : actual === 'dark' ? 'Dark' : 'Light'}</span>`; }); }
 function cycleTheme() { const order = ['light','dark','system']; const next = order[(order.indexOf(localStorage.getItem(themeKey) || 'system') + 1) % order.length]; localStorage.setItem(themeKey,next); applyTheme(next); }
@@ -52,9 +52,39 @@ function projectsView() {
   document.querySelector('#project-search').addEventListener('input', render); document.querySelectorAll('[data-project-filter]').forEach(button => button.onclick = () => { document.querySelectorAll('[data-project-filter]').forEach(item => item.classList.remove('is-selected')); button.classList.add('is-selected'); render(); }); render(); bindViewActions();
 }
 function blogView() {
-  nodes['view-root'].innerHTML = `${pageHeader('PUBLISHING','Blog','Manage drafts and published articles.',`<button class="ui-button ui-button-primary" data-action="new-post">${icon('plus')}New post</button>`)}<div class="toolbar"><label class="search-field">${icon('search')}<input id="post-search" type="search" placeholder="Search posts" aria-label="Search posts"></label><div class="segmented" role="group" aria-label="Post status"><button class="is-selected" data-post-filter="all">All</button><button data-post-filter="PUBLISHED">Published</button><button data-post-filter="DRAFT">Drafts</button></div></div><section class="ui-card table-card"><div class="table-scroll"><table><thead><tr><th>Article</th><th>Status</th><th>Last updated</th><th>GitHub sync</th><th></th></tr></thead><tbody id="post-table"></tbody></table></div><div id="post-empty"></div></section><p class="private-callout"><span>${icon('lock')}</span> Draft posts remain private in Supabase until publish succeeds.</p>`;
-  const render = () => { const query = document.querySelector('#post-search').value.toLowerCase(), filter = document.querySelector('[data-post-filter].is-selected').dataset.postFilter; const filtered = postsData.filter(post => (filter === 'all' || post.status === filter) && `${post.title} ${post.slug}`.toLowerCase().includes(query)); document.querySelector('#post-table').innerHTML = filtered.map(post => `<tr><td><strong>${html(post.title)}</strong><small>${html(post.slug)}</small></td><td><span class="status-badge ${post.status === 'PUBLISHED' ? 'status-public' : 'status-draft'}">${html(post.status)}</span></td><td>${formatDate(post.updated_at)}</td><td><span class="sync-indicator ${post.github_sha ? 'synced' : ''}"><i></i>${post.github_sha ? 'Synced' : 'Not published'}</span></td><td><button class="icon-button" data-edit-post="${html(post.slug)}" aria-label="Edit ${html(post.title)}">${icon('edit')}</button></td></tr>`).join(''); document.querySelector('#post-empty').innerHTML = filtered.length ? '' : emptyState('No posts found',postsData.length ? 'Try changing filters.' : 'Create your first article.','<button class="ui-button ui-button-primary" data-action="new-post">Create post</button>'); bindViewActions(); };
-  document.querySelector('#post-search').addEventListener('input', render); document.querySelectorAll('[data-post-filter]').forEach(button => button.onclick = () => { document.querySelectorAll('[data-post-filter]').forEach(item => item.classList.remove('is-selected')); button.classList.add('is-selected'); render(); }); render();
+  selectedPosts = new Set();
+  nodes['view-root'].innerHTML = `${pageHeader('PUBLISHING','Blog','Manage drafts and published articles.',`<button class="ui-button ui-button-primary" data-action="new-post">${icon('plus')}New post</button>`)}<div class="toolbar"><label class="search-field">${icon('search')}<input id="post-search" type="search" placeholder="Search posts" aria-label="Search posts"></label><div class="segmented" role="group" aria-label="Post status"><button class="is-selected" data-post-filter="all">All</button><button data-post-filter="PUBLISHED">Published</button><button data-post-filter="DRAFT">Drafts</button></div><button class="ui-button ui-button-primary" id="batch-publish" type="button" disabled>Publish selected (0)</button></div><section class="ui-card table-card"><div class="table-scroll"><table><thead><tr><th class="select-col"><input type="checkbox" id="post-select-all" aria-label="Select all drafts"></th><th>Article</th><th>Status</th><th>Last updated</th><th>GitHub sync</th><th></th></tr></thead><tbody id="post-table"></tbody></table></div><div id="post-empty"></div></section><p class="private-callout"><span>${icon('lock')}</span> Draft posts remain private in Supabase until publish succeeds.</p>`;
+  const currentFiltered = () => { const query = document.querySelector('#post-search').value.toLowerCase(), filter = document.querySelector('[data-post-filter].is-selected').dataset.postFilter; return postsData.filter(post => (filter === 'all' || post.status === filter) && `${post.title} ${post.slug}`.toLowerCase().includes(query)); };
+  const selectedDraftCount = () => [...selectedPosts].filter(slug => { const post = postsData.find(item => item.slug === slug); return post && post.status === 'DRAFT'; }).length;
+  const updateBatchUI = () => { const button = document.querySelector('#batch-publish'); if (!button) return; const count = selectedDraftCount(); button.disabled = count === 0 || isSaving; button.textContent = `Publish selected (${count})`; };
+  const updateSelectAll = () => { const box = document.querySelector('#post-select-all'); if (!box) return; const drafts = currentFiltered().filter(post => post.status === 'DRAFT'); const selected = drafts.filter(post => selectedPosts.has(post.slug)); box.checked = drafts.length > 0 && selected.length === drafts.length; box.indeterminate = selected.length > 0 && selected.length < drafts.length; };
+  const render = () => { const filtered = currentFiltered(); document.querySelector('#post-table').innerHTML = filtered.map(post => `<tr><td class="select-col">${post.status === 'DRAFT' ? `<input type="checkbox" data-select-post="${html(post.slug)}" aria-label="Select ${html(post.title)}">` : ''}</td><td><strong>${html(post.title)}</strong><small>${html(post.slug)}</small></td><td><span class="status-badge ${post.status === 'PUBLISHED' ? 'status-public' : 'status-draft'}">${html(post.status)}</span></td><td>${formatDate(post.updated_at)}</td><td><span class="sync-indicator ${post.github_sha ? 'synced' : ''}"><i></i>${post.github_sha ? 'Synced' : 'Not published'}</span></td><td><button class="icon-button" data-edit-post="${html(post.slug)}" aria-label="Edit ${html(post.title)}">${icon('edit')}</button></td></tr>`).join(''); document.querySelector('#post-empty').innerHTML = filtered.length ? '' : emptyState('No posts found',postsData.length ? 'Try changing filters.' : 'Create your first article.','<button class="ui-button ui-button-primary" data-action="new-post">Create post</button>'); document.querySelectorAll('[data-select-post]').forEach(box => { box.checked = selectedPosts.has(box.dataset.selectPost); box.onchange = () => { if (box.checked) selectedPosts.add(box.dataset.selectPost); else selectedPosts.delete(box.dataset.selectPost); updateBatchUI(); updateSelectAll(); }; }); updateBatchUI(); updateSelectAll(); bindViewActions(); };
+  document.querySelector('#post-search').addEventListener('input', render); document.querySelectorAll('[data-post-filter]').forEach(button => button.onclick = () => { document.querySelectorAll('[data-post-filter]').forEach(item => item.classList.remove('is-selected')); button.classList.add('is-selected'); render(); }); document.querySelector('#post-select-all').onchange = event => { const drafts = currentFiltered().filter(post => post.status === 'DRAFT'); if (event.target.checked) drafts.forEach(post => selectedPosts.add(post.slug)); else drafts.forEach(post => selectedPosts.delete(post.slug)); render(); }; document.querySelector('#batch-publish').onclick = batchPublish; render();
+}
+async function batchPublish() {
+  const targets = [...selectedPosts].map(slug => postsData.find(post => post.slug === slug)).filter(post => post && post.status === 'DRAFT');
+  if (!targets.length) { toast('Select at least one draft to publish.','error'); return; }
+  if (!supabase || !session?.user) { toast('Session expired. Please sign in again.','error'); return; }
+  if (isSaving) return;
+  isSaving = true;
+  const button = document.querySelector('#batch-publish'); if (button) button.disabled = true;
+  let published = 0; const failed = [];
+  for (let index = 0; index < targets.length; index++) {
+    const post = targets[index];
+    if (button) button.textContent = `Publishing ${index + 1}/${targets.length}…`;
+    try {
+      const { data:draft } = await supabase.from('drafts').select('title,content,description').eq('user_id',session.user.id).eq('slug',post.slug).maybeSingle();
+      const content = draft?.content || post.content || '';
+      if (!content) { failed.push(`${post.slug} (empty content)`); continue; }
+      const result = await publishOne({ slug:post.slug, title:draft?.title || post.title, content, excerpt:draft?.description || post.excerpt || '' });
+      if (result.ok) { published++; selectedPosts.delete(post.slug); } else failed.push(`${post.slug} (${result.message})`);
+    } catch (error) { failed.push(`${post.slug} (${error?.message || 'unexpected error'})`); }
+  }
+  isSaving = false;
+  try { await fetchPosts(); } catch (error) { toast('Published, but the list failed to reload. Refresh the view.','error'); await loadView('blog'); return; }
+  if (failed.length) toast(`Published ${published} of ${targets.length}. Failed: ${failed.join('; ')}`,'error');
+  else toast(`Published ${published} article${published === 1 ? '' : 's'} to GitHub.`);
+  await loadView('blog');
 }
 function editorView(post = null) {
   currentDraft = post; const editing = Boolean(post); const oldSlug = post?.slug || '';
@@ -62,33 +92,79 @@ function editorView(post = null) {
   document.querySelector('#editor-title').addEventListener('input', event => { if (!document.querySelector('#editor-slug').value || !editing) document.querySelector('#editor-slug').value = event.target.value.toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); scheduleSave(); });
   document.querySelector('#editor-content').addEventListener('input', () => { document.querySelector('#editor-preview').innerHTML = safePreview(document.querySelector('#editor-content').value); scheduleSave(); });
   document.querySelector('#editor-description').addEventListener('input', scheduleSave); document.querySelector('#editor-slug').addEventListener('input', scheduleSave);
+  document.querySelector('#post-editor').onsubmit = event => event.preventDefault();
   document.querySelector('#draft-save').onclick = () => saveDraft('DRAFT', oldSlug);
   document.querySelector('#post-publish').onclick = () => saveDraft('PUBLISHED', oldSlug);
   bindViewActions();
 }
 function safePreview(markdown) { return html(markdown).replace(/^### (.*)$/gm,'<h3>$1</h3>').replace(/^## (.*)$/gm,'<h2>$1</h2>').replace(/^# (.*)$/gm,'<h1>$1</h1>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\*(.*?)\*/g,'<em>$1</em>').replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\n/g,'<br>'); }
+function scheduleSave() { if (isSaving || !document.querySelector('#editor-title')) return; const statusNode=document.querySelector('#editor-status'); if(statusNode)statusNode.textContent='Unsaved changes'; clearTimeout(saveTimer); saveTimer=setTimeout(()=>saveDraft('DRAFT',currentDraft?.slug||''),1500); }
+async function callPublishAPI({ title, slug, content, description }) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 120000);
+  try {
+    const response = await fetch(`${config.url}/functions/v1/publish-post`,{ method:'POST', signal:controller.signal, headers:{ Authorization:`Bearer ${session.access_token}`, 'Content-Type':'application/json' }, body:JSON.stringify({ action:'publish', title, slug, content, description }) });
+    let detail = '';
+    try { const data = await response.json(); detail = data?.error || data?.message || ''; } catch { detail = ''; }
+    if (!response.ok) return { ok:false, message:detail || `Publish request failed (HTTP ${response.status}). Draft is safe.` };
+    return { ok:true, message:detail };
+  } catch (error) {
+    if (error?.name === 'AbortError') return { ok:false, message:'Publish timed out after 2 minutes. Draft is safe; please retry.' };
+    return { ok:false, message:'Network error while publishing. Check your connection; draft is safe.' };
+  } finally { clearTimeout(timer); }
+}
+async function publishOne({ slug, title, content, excerpt }) {
+  const api = await callPublishAPI({ title, slug, content, description:excerpt });
+  if (!api.ok) return api;
+  const { data:publishedDraft, error:readError } = await supabase.from('drafts').select('github_path,github_sha,published_at').eq('user_id',session.user.id).eq('slug',slug).maybeSingle();
+  if (readError) return { ok:false, message:'Published to GitHub, but the draft record could not be re-read. Reload and verify.' };
+  const publishedAt = publishedDraft?.published_at || new Date().toISOString();
+  const { error:updateError } = await supabase.from('posts_metadata').update({ status:'PUBLISHED', github_path:publishedDraft?.github_path ?? null, published_at:publishedAt, github_sha:publishedDraft?.github_sha ?? null, content, updated_at:new Date().toISOString() }).eq('slug',slug);
+  if (updateError) return { ok:false, message:`Published to GitHub, but listing sync failed: ${updateError.message}. Retry publish to sync.` };
+  return { ok:true, message:'Published' };
+}
 async function saveDraft(status, oldSlug = '') {
-  const title = document.querySelector('#editor-title').value.trim(), slug = document.querySelector('#editor-slug').value.trim().toLowerCase().replace(/[^a-z0-9-]/g,'-'), content = document.querySelector('#editor-content').value, excerpt = document.querySelector('#editor-description').value.trim();
+  const titleEl = document.querySelector('#editor-title'), slugEl = document.querySelector('#editor-slug'), contentEl = document.querySelector('#editor-content'), excerptEl = document.querySelector('#editor-description');
+  if (!titleEl || !slugEl || !contentEl) return;
+  if (!supabase || !session?.user) { toast('Session expired. Please sign in again.','error'); return; }
+  const title = titleEl.value.trim(), slug = slugEl.value.trim().toLowerCase().replace(/[^a-z0-9-]/g,'-'), content = contentEl.value, excerpt = (excerptEl?.value || '').trim();
   if (!title || !slug) { toast('Add a title and valid slug before saving.','error'); return; }
-  const statusNode = document.querySelector('#editor-status'); statusNode.textContent = status === 'PUBLISHED' ? 'Publishing…' : 'Saving…';
-  const updatedAt = new Date().toISOString();
-  const draft = { user_id:session.user.id, slug, title, description:excerpt, content, status:'DRAFT', github_path:currentDraft?.github_path || null, github_sha:currentDraft?.github_sha || null, published_at:currentDraft?.published_at || null, updated_at:updatedAt };
-  const { error:draftError } = await supabase.from('drafts').upsert(draft,{onConflict:'user_id,slug'});
-  if (draftError) { statusNode.textContent='Save failed'; toast('Unable to save draft. Content remains in editor.','error'); return; }
-  const metadata = { user_id:session.user.id, slug, title, excerpt, status:'DRAFT', github_path:draft.github_path, github_sha:draft.github_sha, published_at:draft.published_at, updated_at:updatedAt };
-  const { error:metadataError } = await supabase.from('posts_metadata').upsert(metadata,{onConflict:'slug'});
-  if (metadataError) { statusNode.textContent='Saved as private draft'; toast('Draft saved. Public listing sync failed.','error'); return; }
-  if (status === 'PUBLISHED') {
-    statusNode.textContent='Publishing…';
-    const response = await fetch(`${config.url}/functions/v1/publish-post`,{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`,'Content-Type':'application/json'},body:JSON.stringify({action:'publish',title,slug,content,description:excerpt})});
-    if (!response.ok) { statusNode.textContent='Publish failed'; toast('Publishing failed. Your draft is still safe.','error'); return; }
-    const {data:publishedDraft}=await supabase.from('drafts').select('github_path,github_sha,published_at').eq('user_id',session.user.id).eq('slug',slug).maybeSingle();
-    const publishedAt=publishedDraft?.published_at||new Date().toISOString();
-    await supabase.from('posts_metadata').update({status:'PUBLISHED',github_path:publishedDraft?.github_path,published_at:publishedAt,github_sha:publishedDraft?.github_sha,content,updated_at:new Date().toISOString()}).eq('slug',slug);
-    statusNode.textContent='Published'; toast('Article published to GitHub.');
-  } else { statusNode.textContent='Saved'; toast('Draft saved.'); }
-  if (oldSlug && oldSlug !== slug) await supabase.from('drafts').delete().eq('user_id',session.user.id).eq('slug',oldSlug);
-  await fetchPosts(); currentDraft={...draft,excerpt}; if(status==='PUBLISHED') await loadView('blog');
+  if (!content) { toast('Article content is empty. Write something before saving.','error'); return; }
+  if (isSaving) return;
+  isSaving = true;
+  const saveButton = document.querySelector('#draft-save'), publishButton = document.querySelector('#post-publish');
+  if (saveButton) saveButton.disabled = true;
+  if (publishButton) publishButton.disabled = true;
+  const statusNode = document.querySelector('#editor-status');
+  try {
+    if (statusNode) statusNode.textContent = status === 'PUBLISHED' ? 'Publishing…' : 'Saving…';
+    const updatedAt = new Date().toISOString();
+    const draft = { user_id:session.user.id, slug, title, description:excerpt, content, status:'DRAFT', github_path:currentDraft?.github_path || null, github_sha:currentDraft?.github_sha || null, published_at:currentDraft?.published_at || null, updated_at:updatedAt };
+    const { error:draftError } = await supabase.from('drafts').upsert(draft,{onConflict:'user_id,slug'});
+    if (draftError) throw new Error(`Draft save rejected: ${draftError.message}`);
+    const metadata = { user_id:session.user.id, slug, title, excerpt, status:'DRAFT', github_path:draft.github_path, github_sha:draft.github_sha, published_at:draft.published_at, updated_at:updatedAt };
+    const { error:metadataError } = await supabase.from('posts_metadata').upsert(metadata,{onConflict:'slug'});
+    if (metadataError) throw new Error(`Listing sync rejected: ${metadataError.message}`);
+    if (status === 'PUBLISHED') {
+      if (statusNode) statusNode.textContent = 'Publishing…';
+      const result = await publishOne({ slug, title, content, excerpt });
+      if (!result.ok) { if (statusNode) statusNode.textContent = 'Publish failed'; toast(result.message,'error'); return; }
+      if (statusNode) statusNode.textContent = 'Published'; toast('Article published to GitHub.');
+    } else { if (statusNode) statusNode.textContent = 'Saved'; toast('Draft saved.'); }
+    if (oldSlug && oldSlug !== slug) {
+      const { error:deleteError } = await supabase.from('drafts').delete().eq('user_id',session.user.id).eq('slug',oldSlug);
+      if (deleteError) toast(`Saved under the new slug, but the old draft (“${oldSlug}”) could not be removed.`,'error');
+    }
+    await fetchPosts(); currentDraft = { ...draft, excerpt }; if (status === 'PUBLISHED') await loadView('blog');
+  } catch (error) {
+    if (statusNode) statusNode.textContent = 'Save failed';
+    toast(`Save failed: ${error?.message || 'unexpected error'}. Content remains in editor.`,'error');
+  } finally {
+    isSaving = false;
+    const saveBtn = document.querySelector('#draft-save'), pubBtn = document.querySelector('#post-publish');
+    if (saveBtn) saveBtn.disabled = false;
+    if (pubBtn) pubBtn.disabled = false;
+  }
 }
 function notesView() {
   nodes['view-root'].innerHTML = `${pageHeader('PRIVATE STORAGE','Private notes','Your personal notes stay in protected Supabase storage.','<button class="ui-button ui-button-primary" data-action="new-note">'+icon('plus')+'New note</button>')}<label class="search-field notes-search">${icon('search')}<input id="note-search" type="search" placeholder="Search notes" aria-label="Search private notes"></label><div class="notes-grid" id="notes-grid"></div><p class="private-callout"><span>${icon('lock')}</span> Private notes are never published to the website or written to the public repository.</p>`;
@@ -101,7 +177,7 @@ async function settingsView() { const user = session.user; nodes['view-root'].in
 }
 async function loadView(view) { currentView = view; document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('is-active',item.dataset.view === view)); nodes['crumb-current'].textContent = view === 'notes' ? 'Private notes' : view[0].toUpperCase()+view.slice(1); if (view === 'dashboard') await dashboardView(); else if (view === 'projects') { nodes['view-root'].innerHTML = skeleton(6); try { repoData = await requestRepos(); projectsView(); } catch { nodes['view-root'].innerHTML = `${pageHeader('PORTFOLIO','Projects','Unable to load GitHub repositories.')}<div class="error-panel"><p>Check your connection and retry.</p><button class="ui-button ui-button-secondary" data-action="refresh-projects">Retry</button></div>`; bindViewActions(); } } else if (view === 'blog') { nodes['view-root'].innerHTML = skeleton(4); try { await fetchPosts(); blogView(); } catch { nodes['view-root'].innerHTML = `${pageHeader('PUBLISHING','Blog','Unable to load posts.')}<div class="error-panel"><p>Check your connection and retry.</p><button class="ui-button ui-button-secondary" data-action="reload-view">Retry</button></div>`; bindViewActions(); } } else if (view === 'notes') { nodes['view-root'].innerHTML = skeleton(4); try { await fetchNotes(); notesView(); } catch { nodes['view-root'].innerHTML = `${pageHeader('PRIVATE STORAGE','Private notes','Unable to load notes.')}<div class="error-panel"><p>Check your connection and retry.</p><button class="ui-button ui-button-secondary" data-action="reload-view">Retry</button></div>`; bindViewActions(); } } else await settingsView(); closeMobileNav(); }
 async function signOut() { await supabase.auth.signOut(); authorizedScreen('login'); toast('Signed out.'); }
-function bindViewActions() { document.querySelectorAll('[data-action]').forEach(button => button.onclick = async () => { const action = button.dataset.action; if(action==='sync-projects'){button.disabled=true;button.textContent='Syncing…';const result=await fetch(`${config.url}/functions/v1/sync-github-projects`,{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`,'Content-Type':'application/json'},body:'{}'});button.disabled=false;button.innerHTML=`${icon('refresh')}Sync GitHub`;if(!result.ok){toast('GitHub sync failed. Check server configuration.','error');return;}const counts=await result.json();toast(`Synced ${counts.synced} repositories (${counts.public} public, ${counts.private} private).`);await loadView('projects');}else if (action === 'view-blog') loadView('blog'); else if (action === 'view-projects') loadView('projects'); else if (action === 'new-post') editorView(); else if (action === 'new-note') noteEditor(); else if (action === 'refresh-projects') loadView('projects'); else if (action === 'reload-view') loadView(currentView); }); document.querySelectorAll('[data-edit-post]').forEach(button => button.onclick = async () => { const post = postsData.find(item => item.slug === button.dataset.editPost); if (!post) return; const { data } = await supabase.from('drafts').select('*').eq('user_id',session.user.id).eq('slug',post.slug).maybeSingle(); editorView({ ...post, content:data?.content || '' }); }); document.querySelectorAll('[data-edit-note]').forEach(button => button.onclick = () => noteEditor(notesData.find(item => item.id === button.dataset.editNote))); }
+function bindViewActions() { document.querySelectorAll('[data-action]').forEach(button => button.onclick = async () => { const action = button.dataset.action; if(action==='sync-projects'){button.disabled=true;button.textContent='Syncing…';const result=await fetch(`${config.url}/functions/v1/sync-github-projects`,{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`,'Content-Type':'application/json'},body:'{}'});button.disabled=false;button.innerHTML=`${icon('refresh')}Sync GitHub`;if(!result.ok){toast('GitHub sync failed. Check server configuration.','error');return;}const counts=await result.json();toast(`Synced ${counts.synced} repositories (${counts.public} public, ${counts.private} private).`);await loadView('projects');}else if (action === 'view-blog') loadView('blog'); else if (action === 'view-projects') loadView('projects'); else if (action === 'new-post') editorView(); else if (action === 'new-note') noteEditor(); else if (action === 'refresh-projects') loadView('projects'); else if (action === 'reload-view') loadView(currentView); }); document.querySelectorAll('[data-edit-post]').forEach(button => button.onclick = async () => { const post = postsData.find(item => item.slug === button.dataset.editPost); if (!post) return; const { data } = await supabase.from('drafts').select('*').eq('user_id',session.user.id).eq('slug',post.slug).maybeSingle(); editorView({ ...post, content:data?.content || post.content || '' }); }); document.querySelectorAll('[data-edit-note]').forEach(button => button.onclick = () => noteEditor(notesData.find(item => item.id === button.dataset.editNote))); }
 document.querySelectorAll('.nav-item[data-view]').forEach(button => button.onclick = () => loadView(button.dataset.view));
 document.querySelector('#github-login').onclick = async () => { const { error } = await supabase.auth.signInWithOAuth({ provider:'github', options:{ redirectTo:'https://robprian.github.io/admin/' } }); if (error) showAuthError('Unable to sign in. Please try again.'); };
 document.querySelector('#password-form').onsubmit = async event => { event.preventDefault(); const button = document.querySelector('#password-login'); button.disabled = true; button.textContent = 'Signing in…'; const { error } = await supabase.auth.signInWithPassword({ email:document.querySelector('#email').value.trim(), password:document.querySelector('#password').value }); button.disabled = false; button.textContent = 'Sign in'; if (error) showAuthError('Unable to sign in. Check your credentials and try again.'); };
