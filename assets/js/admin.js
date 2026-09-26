@@ -88,18 +88,75 @@ async function batchPublish() {
 }
 function editorView(post = null) {
   currentDraft = post; const editing = Boolean(post); const oldSlug = post?.slug || '';
-  nodes['view-root'].innerHTML = `${pageHeader('BLOG EDITOR',editing ? 'Edit article' : 'New article','Draft changes save privately in Supabase.',`<button class="ui-button ui-button-secondary" data-action="view-blog">Back to blog</button>`)}<form id="post-editor" class="editor-layout"><section class="ui-card editor-main"><label for="editor-title">Title</label><input class="ui-input editor-title" id="editor-title" value="${html(post?.title)}" placeholder="Give your article a title" required><label for="editor-content">Article content <span>Markdown</span></label><textarea class="ui-input editor-content" id="editor-content" rows="20" placeholder="Write your article in Markdown...">${html(post?.content || '')}</textarea><div class="editor-preview" id="editor-preview"><p>Preview appears here after you write content.</p></div></section><aside class="ui-card editor-settings"><h2>Publishing details</h2><label for="editor-slug">Slug</label><input class="ui-input" id="editor-slug" value="${html(post?.slug)}" placeholder="article-url-slug" required><label for="editor-description">Description</label><textarea class="ui-input" id="editor-description" rows="4" placeholder="Short summary for search and sharing">${html(post?.excerpt)}</textarea><label for="editor-cover">Cover image URL</label><input class="ui-input" id="editor-cover" value="${html(post?.cover_image || '')}" placeholder="https://… (optional)"><div class="cover-preview" id="cover-preview"></div><div class="editor-status" id="editor-status">${editing ? `Last saved ${formatDate(post.updated_at)}` : 'Unsaved draft'}</div><button class="ui-button ui-button-secondary ui-button-wide" id="draft-save" type="button">Save draft</button><button class="ui-button ui-button-primary ui-button-wide" id="post-publish" type="button">${post?.status === 'PUBLISHED' ? 'Update published post' : 'Publish post'}</button></aside></form>`;
+  nodes['view-root'].innerHTML = `${pageHeader('BLOG EDITOR',editing ? 'Edit article' : 'New article','Draft changes save privately in Supabase.',`<button class="ui-button ui-button-secondary" data-action="view-blog">Back to blog</button>`)}<form id="post-editor" class="editor-layout"><section class="ui-card editor-main"><label for="editor-title">Title</label><input class="ui-input editor-title" id="editor-title" value="${html(post?.title)}" placeholder="Give your article a title" required><label for="editor-content">Article content <span>Markdown</span></label><textarea class="ui-input editor-content" id="editor-content" rows="20" placeholder="Write your article in Markdown...">${html(post?.content || '')}</textarea><div class="editor-preview" id="editor-preview"><p>Preview appears here after you write content.</p></div></section><aside class="ui-card editor-settings"><h2>Publishing details</h2><label for="editor-slug">Slug</label><input class="ui-input" id="editor-slug" value="${html(post?.slug)}" placeholder="article-url-slug" required><label for="editor-description">Description</label><textarea class="ui-input" id="editor-description" rows="4" placeholder="Short summary for search and sharing">${html(post?.excerpt)}</textarea><label for="editor-cover">Cover image URL</label><input class="ui-input" id="editor-cover" value="${html(post?.cover_image || '')}" placeholder="https://… (optional)"><div class="cover-preview" id="cover-preview"></div><label for="editor-image-file">Upload image</label><input class="ui-input" id="editor-image-file" type="file" accept="image/*"><button class="ui-button ui-button-secondary ui-button-wide" id="image-upload" type="button">Upload & insert into article</button><div class="upload-status" id="upload-status"></div><div class="editor-status" id="editor-status">${editing ? `Last saved ${formatDate(post.updated_at)}` : 'Unsaved draft'}</div><button class="ui-button ui-button-secondary ui-button-wide" id="draft-save" type="button">Save draft</button><button class="ui-button ui-button-primary ui-button-wide" id="post-publish" type="button">${post?.status === 'PUBLISHED' ? 'Update published post' : 'Publish post'}</button></aside></form>`;
   document.querySelector('#editor-title').addEventListener('input', event => { if (!document.querySelector('#editor-slug').value || !editing) document.querySelector('#editor-slug').value = event.target.value.toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); scheduleSave(); });
-  document.querySelector('#editor-content').addEventListener('input', () => { document.querySelector('#editor-preview').innerHTML = safePreview(document.querySelector('#editor-content').value); scheduleSave(); });
+  document.querySelector('#editor-content').addEventListener('input', () => { updatePreview(); scheduleSave(); }); updatePreview();
   document.querySelector('#editor-description').addEventListener('input', scheduleSave); document.querySelector('#editor-slug').addEventListener('input', scheduleSave);
   const renderCoverPreview = () => { const preview = document.querySelector('#cover-preview'); const value = document.querySelector('#editor-cover').value.trim(); preview.innerHTML = /^https?:\/\//.test(value) ? `<img src="${html(value)}" alt="Cover preview">` : ''; };
   document.querySelector('#editor-cover').addEventListener('input', () => { renderCoverPreview(); scheduleSave(); }); renderCoverPreview();
+  document.querySelector('#image-upload').onclick = async () => {
+    const fileInput = document.querySelector('#editor-image-file'), status = document.querySelector('#upload-status'), button = document.querySelector('#image-upload');
+    if (!supabase || !session?.user) { toast('Session expired. Please sign in again.','error'); return; }
+    button.disabled = true; status.textContent = 'Uploading…';
+    try {
+      const file = fileInput.files[0];
+      const url = await uploadBlogImage(file);
+      const coverInput = document.querySelector('#editor-cover');
+      if (!coverInput.value.trim()) { coverInput.value = url; renderCoverPreview(); }
+      insertAtCursor(document.querySelector('#editor-content'), `\n\n![${(file.name || 'image').replace(/[\[\]()]/g,'')}](${url})\n`);
+      updatePreview(); scheduleSave(); fileInput.value = '';
+      status.textContent = 'Uploaded and inserted at cursor.';
+      toast('Image uploaded and inserted.');
+    } catch (error) { status.textContent = 'Upload failed'; toast(`Image upload failed: ${error?.message || 'unexpected error'}`,'error'); }
+    finally { button.disabled = false; }
+  };
   document.querySelector('#post-editor').onsubmit = event => event.preventDefault();
   document.querySelector('#draft-save').onclick = () => saveDraft('DRAFT', oldSlug);
   document.querySelector('#post-publish').onclick = () => saveDraft('PUBLISHED', oldSlug);
   bindViewActions();
 }
-function safePreview(markdown) { return html(markdown).replace(/^### (.*)$/gm,'<h3>$1</h3>').replace(/^## (.*)$/gm,'<h2>$1</h2>').replace(/^# (.*)$/gm,'<h1>$1</h1>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\*(.*?)\*/g,'<em>$1</em>').replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\n/g,'<br>'); }
+function renderMarkdown(markdown) {
+  const codeBlocks = [], inlineCodes = [];
+  let text = html(markdown || '');
+  text = text.replace(/```[a-zA-Z]*\n([\s\S]*?)(?:```|$)/g, (match, code) => { codeBlocks.push(`<pre><code>${code.replace(/^\n+|\n+$/g,'')}</code></pre>`); return `\u0000C${codeBlocks.length - 1}\u0000`; });
+  text = text.replace(/`([^`\n]+)`/g, (match, code) => { inlineCodes.push(`<code>${code}</code>`); return `\u0000I${inlineCodes.length - 1}\u0000`; });
+  const inline = value => value
+    .replace(/!\[([^\]\n]*)\]\(([^)\s\n]+)\)/g, '<img src="$2" alt="$1" loading="lazy">')
+    .replace(/\[([^\]\n]+)\]\(([^)\s\n]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+    .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[^*\w])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+  const blocks = text.split(/\n{2,}/).map(block => {
+    const lines = block.split('\n').filter(line => line.trim() !== '');
+    if (!lines.length) return '';
+    const heading = lines[0].match(/^(#{1,3})\s+(.*)$/);
+    if (heading && lines.length === 1) return `<h${heading[1].length}>${inline(heading[2])}</h${heading[1].length}>`;
+    if (lines.every(line => /^[-*]\s+/.test(line))) return `<ul>${lines.map(line => `<li>${inline(line.replace(/^[-*]\s+/,''))}</li>`).join('')}</ul>`;
+    if (lines.every(line => /^\d+\.\s+/.test(line))) return `<ol>${lines.map(line => `<li>${inline(line.replace(/^\d+\.\s+/,''))}</li>`).join('')}</ol>`;
+    if (lines.every(line => /^&gt;\s?/.test(line))) return `<blockquote>${lines.map(line => inline(line.replace(/^&gt;\s?/,''))).join('<br>')}</blockquote>`;
+    if (/^(-{3,}|\*{3,})$/.test(lines[0]) && lines.length === 1) return '<hr>';
+    return `<p>${lines.map(inline).join('<br>')}</p>`;
+  }).join('');
+  return blocks.replace(/\u0000C(\d+)\u0000/g, (match, index) => codeBlocks[+index] || '').replace(/\u0000I(\d+)\u0000/g, (match, index) => inlineCodes[+index] || '');
+}
+function updatePreview() {
+  try {
+    const preview = document.querySelector('#editor-preview');
+    if (preview) preview.innerHTML = renderMarkdown(document.querySelector('#editor-content').value) || '<p>Preview appears here after you write content.</p>';
+  } catch (error) { /* preview must never break typing */ }
+}
+function insertAtCursor(textarea, text) { const start = textarea.selectionStart ?? textarea.value.length, end = textarea.selectionEnd ?? textarea.value.length; textarea.value = textarea.value.slice(0,start) + text + textarea.value.slice(end); textarea.selectionStart = textarea.selectionEnd = start + text.length; textarea.focus(); }
+async function uploadBlogImage(file) {
+  if (!file) throw new Error('Choose an image file first.');
+  if (!file.type || !file.type.startsWith('image/')) throw new Error('Only image files are allowed.');
+  if (file.size > 5 * 1024 * 1024) throw new Error('Image must be 5 MB or smaller.');
+  const ext = ((file.name.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,5)) || 'png';
+  const path = `covers/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+  const { error } = await supabase.storage.from('blog-images').upload(path, file, { contentType:file.type, upsert:false });
+  if (error) { if (/bucket|not found/i.test(error.message)) throw new Error('Storage bucket “blog-images” is missing. Run supabase/migrations/20260927010000_blog_images_storage.sql in Supabase SQL Editor first.'); throw new Error(error.message); }
+  const { data } = supabase.storage.from('blog-images').getPublicUrl(path);
+  if (!data?.publicUrl) throw new Error('Upload succeeded but no public URL was returned.');
+  return data.publicUrl;
+}
 function scheduleSave() { if (isSaving || !document.querySelector('#editor-title')) return; const statusNode=document.querySelector('#editor-status'); if(statusNode)statusNode.textContent='Unsaved changes'; clearTimeout(saveTimer); saveTimer=setTimeout(()=>saveDraft('DRAFT',currentDraft?.slug||''),1500); }
 async function callPublishAPI({ title, slug, content, description, coverImage }) {
   const controller = new AbortController();
